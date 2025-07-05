@@ -1,0 +1,9 @@
+# Binaries
+bin/
+
+# WASM builds
+static/wasm/
+
+# Go build cache
+*.exe
+*.wasm
