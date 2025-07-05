@@ -8,7 +8,8 @@
 cd wasm
 $env:GOOS = "js"
 $env:GOARCH = "wasm"
-go build -o ../static/wasm/main.wasm .
+go build -o ../static/wasm/game_of_life.wasm ./game_of_life/main.go
+go build -o ../static/wasm/snake.wasm ./snake/main.go
 
 # Ensure bin directory exists
 New-Item -ItemType Directory -Force -Path ../bin | Out-Null

@@ -10,7 +10,8 @@
 cd wasm
 
 # Build wasm
-GOOS=js GOARCH=wasm go build -o ../static/wasm/main.wasm .
+GOOS=js GOARCH=wasm go build -o ../static/wasm/game_of_life.wasm ./game_of_life/main.go
+GOOS=js GOARCH=wasm go build -o ../static/wasm/snake.wasm ./snake/main.go
 
 cd ../serve
 

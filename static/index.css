@@ -1,0 +1,84 @@
+:root {
+  --background-color: #393e46;
+  --text-color: #eeeeee;
+  --accent-color-1: #222831;
+  --accent-color-2: #00adb5;
+}
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  display: flex;
+  flex-direction: column;
+
+  height: 100vh;
+
+  background: var(--background-color);
+  color: var(--text-color);
+}
+
+main,
+header,
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 10px;
+}
+
+main {
+  flex: 1;
+  flex-direction: column;
+}
+
+#window {
+  border: solid 1px var(--text-color);
+}
+
+nav {
+  flex: 1;
+  display: flex;
+  justify-content: space-around;
+  align-content: center;
+  background-color: var(--accent-color-1);
+  border-radius: 10px;
+}
+
+nav a {
+  text-decoration: none;
+  color: var(--text-color);
+  font-size: 20px;
+  position: relative;
+}
+
+nav a::before {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: var(--accent-color-2);
+  width: 80%;
+  height: 0;
+  transition: height 0.1s ease-in-out;
+}
+
+nav a:hover {
+  color: var(--accent-color-2);
+}
+
+nav a:hover::before {
+  height: 2px;
+}
+
+.active-link {
+  color: var(--accent-color-2);
+}
+
+.active-link::before {
+  height: 2px;
+}

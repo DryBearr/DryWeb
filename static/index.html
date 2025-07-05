@@ -1,27 +1,17 @@
-<!-- 
-  ===============================================================
-  File: index.html
-  Description: Main entry HTML page 
-  Author: DryBearr
-  =============================================================== 
--->
-
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script src="wasm_exec.js"></script>
-    <script>
-      const go = new Go();
-      WebAssembly.instantiateStreaming(
-        fetch("wasm/main.wasm"),
-        go.importObject,
-      ).then((result) => {
-        go.run(result.instance);
-      });
-    </script>
+    <script type="module" src="./load_go.js"></script>
+    <link rel="stylesheet" href="index.css" />
     <title>DryWeb</title>
   </head>
-  <body></body>
+  <body>
+    <header>
+      <nav id="wasm-links"></nav>
+    </header>
+    <main></main>
+    <footer></footer>
+  </body>
 </html>
