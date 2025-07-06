@@ -3,7 +3,7 @@ name: Build and Deploy DryWeb
 on:
   push:
     branches:
-      - ${{ github.default_branch }}
+      - master # TODO: find way to set default branch instead master
 
 jobs:
   build:
