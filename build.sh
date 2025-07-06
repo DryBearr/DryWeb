@@ -2,23 +2,26 @@
 
 # ===============================================================
 # File: build.sh
-# Description: Builds the wasm and serve linux edition
+# Description: Builds the wasm and optionally the server binary
 # Author: DryBearr
 # ===============================================================
 
+build_serve=true
+
+for arg in "$@"; do
+  if [ "$arg" = "--no-serve" ]; then
+    build_serve=false
+  fi
+done
 
 cd wasm
-
-# Build wasm
 GOOS=js GOARCH=wasm go build -o ../static/wasm/game_of_life.wasm ./game_of_life/main.go
 GOOS=js GOARCH=wasm go build -o ../static/wasm/snake.wasm ./snake/main.go
-
-cd ../serve
-
-# Create bin directory if it doesn't exist
-mkdir -p ../bin
-
-# Build server binary into bin/
-go build -o ../bin/serve
-
 cd ..
+
+if [ "$build_serve" = true ]; then
+  cd serve
+  mkdir -p ../bin
+  go build -o ../bin/serve
+  cd ..
+fi
