@@ -1,0 +1,29 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <!-- Full black fill (outer hexagon) -->
+  <polygon
+    points="32,6 54,18 54,46 32,58 10,46 10,18"
+    fill="#000000"/>
+  <!-- Outer hexagon stroke -->
+  <polygon
+    points="32,6 54,18 54,46 32,58 10,46 10,18"
+    stroke="#00AA00"
+    stroke-width="2"
+    fill="none"/>
+  <!-- Inner hexagon stroke -->
+  <polygon
+    points="32,18 44,24 44,40 32,46 20,40 20,24"
+    stroke="#00AA00"
+    stroke-width="2"
+    fill="none"/>
+  <!-- Centered text -->
+  <text
+    x="32"
+    y="32"
+    font-size="8"
+    font-family="monospace"
+    fill="#00AA00"
+    text-anchor="middle"
+    dominant-baseline="middle">
+    Dry_
+  </text>
+</svg>
