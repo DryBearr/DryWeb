@@ -25,6 +25,7 @@ var (
 )
 
 func main() {
+	//TODO:
 	window := js.Global().Get("window")
 	viewportWidth := window.Get("innerWidth").Int()
 	viewportHeight := window.Get("innerHeight").Int()
