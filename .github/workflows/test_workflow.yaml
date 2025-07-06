@@ -3,7 +3,7 @@ name: Test Workflow Trigger
 on:
   push:
     branches:
-      - master
+      - ${{ github.event.repository.default_branch }}
 
 jobs:
   test:
