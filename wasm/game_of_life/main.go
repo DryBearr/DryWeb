@@ -9,7 +9,6 @@
 package main
 
 import (
-	"log"
 	"math/rand"
 	"wasm/render"
 )
@@ -22,7 +21,6 @@ func main() {
 
 	SetRandomFrame(&frame1D)
 	for {
-		log.Println("yee")
 		SetRandomFrame(&frame1D)
 		render.AddFrame(&frame1D)
 	}
