@@ -33,8 +33,13 @@ self.onmessage = (event) => {
       .catch((error) => {
         self.postMessage({
           type: "log",
-          message: `[Worker] error:${error};\n msg: ${JSON.stringify(msg)};\n width:${msg.data.width};\n height:${msg.data.height};\n wasm: ${msg.data.wasm};\n`,
+          message: `[Worker] error:${error};\n msg: ${JSON.stringify(msg)}\n`,
         });
       });
+
+    self.postMessage({
+      type: "log",
+      message: `[Worker] width:${msg.data.width}; height:${msg.data.height}, wasm:${msg.data.wasm} initialized`,
+    });
   }
 };

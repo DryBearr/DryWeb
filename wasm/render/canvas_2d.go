@@ -52,8 +52,10 @@ func init() {
 		}
 
 		width = params.Get("width").Int()
+		log.Println("[render_canvas2d.js] width:", width)
 
 		height = params.Get("height").Int()
+		log.Println("[render_canvas2d.js] height:", height)
 	} else {
 		panic("can't run outside worker!!!")
 	}
@@ -74,6 +76,8 @@ func GetHeight() int {
 }
 
 func AddFrame(frame1D *[]Pixel) {
+
+	log.Println("[render_canvas2d.js] adding frame to queue.")
 	addFrameQueue1D(frame1D)
 
 	startAnimationLoop()
@@ -152,6 +156,7 @@ func startAnimationLoop() {
 		return
 	}
 
+	log.Println("[render_canvas2d.js] starting animation loop.")
 	animationLoopCtx, CancelAnimation = context.WithCancel(context.Background())
 
 	setRunning(true)
@@ -162,6 +167,7 @@ func startAnimationLoop() {
 			case <-animationLoopCtx.Done():
 				setRunning(false)
 
+				log.Println("[render_canvas2d.js] canceling animation loop.")
 				return
 			default:
 			}
@@ -169,6 +175,7 @@ func startAnimationLoop() {
 			if isEmptyQueue() {
 				setRunning(false)
 
+				log.Println("[render_canvas2d.js] frame queue is empty, stoping the animation loop.")
 				return
 			}
 
@@ -176,7 +183,7 @@ func startAnimationLoop() {
 
 			err := sendFrameToWorker(frame, 4) //TODO: set routines number base on how heavy is work to do
 			if err != nil {
-				log.Println(err)
+				log.Printf("[render_canvas2d.js] can't send frame to worker: %v\n", err)
 			}
 		}
 	}()
@@ -184,10 +191,9 @@ func startAnimationLoop() {
 
 func setRunning(state bool) {
 	runningMutex.Lock()
+	defer runningMutex.Unlock()
 
 	running = state
-
-	defer runningMutex.Unlock()
 }
 
 func getRunning() bool {

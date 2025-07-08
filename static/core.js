@@ -58,8 +58,6 @@ worker.postMessage({
   },
 });
 
-console.log("[Core] Init worker Done.");
-
 worker.addEventListener("message", function (event) {
   const data = event.data;
   if (data.type === "log") {
@@ -68,9 +66,9 @@ worker.addEventListener("message", function (event) {
 });
 
 worker.addEventListener("message", function (event) {
-  console.log("[Core] reciving pixels from worker.");
   const data = event.data;
   if (data.type === "pixels") {
+    console.log("[Core] reciving pixels from worker.");
     if (!data.height || !data.width || !data.pixels) {
       return;
     }
@@ -85,3 +83,5 @@ worker.addEventListener("message", function (event) {
     setFrame(data.pixels);
   }
 });
+
+console.log("[Core] Init worker Done.");
