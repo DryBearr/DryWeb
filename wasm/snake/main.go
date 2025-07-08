@@ -9,47 +9,37 @@
 package main
 
 import (
-	"syscall/js"
-)
-
-const (
-	WINDOW_WIDTH  = 500
-	WINDOW_HEIGHT = 500
-
-	WINDOW_WIDTH_MB  = 300
-	WINDOW_HEIGHT_MB = 300
-)
-
-var (
-	ctx js.Value
+	"math/rand"
+	"wasm/render"
 )
 
 func main() {
-	window := js.Global().Get("window")
-	viewportWidth := window.Get("innerWidth").Int()
-	viewportHeight := window.Get("innerHeight").Int()
+	width := render.GetWidth()
+	height := render.GetHeight()
 
-	document := js.Global().Get("document")
+	frame1D := make([]render.Pixel, width*height)
 
-	canvas := document.Call("createElement", "canvas")
-	canvas.Set("id", "window")
-
-	width := WINDOW_WIDTH
-	height := WINDOW_HEIGHT
-
-	if viewportHeight < WINDOW_HEIGHT || viewportWidth < WINDOW_WIDTH {
-		width = WINDOW_WIDTH_MB
-		height = WINDOW_HEIGHT_MB
+	SetRandomFrame(&frame1D)
+	for {
+		SetRandomFrame(&frame1D)
+		render.AddFrame(&frame1D)
 	}
 
-	canvas.Set("width", width)
-	canvas.Set("height", height)
+}
 
-	document.Call("querySelector", "main").Call("append", canvas)
-	ctx = canvas.Call("getContext", "2d")
-	ctx.Set("fillStyle", "white")
-	ctx.Set("strokeStyle", "white")
-	ctx.Set("font", "48px serif")
-	ctx.Call("fillText", "Snake", 10, 50)
-	select {}
+func SetRandomFrame(frame1D *[]render.Pixel) {
+	for idx, pixel := range *frame1D {
+		if rand.Intn(3)%2 == 0 {
+			pixel.R = 255
+			pixel.G = 255
+			pixel.B = 255
+		} else {
+			pixel.R = 0
+			pixel.G = 0
+			pixel.B = 0
+		}
+		pixel.A = 255
+
+		(*frame1D)[idx] = pixel
+	}
 }

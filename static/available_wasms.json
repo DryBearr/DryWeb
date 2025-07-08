@@ -1,0 +1,11 @@
+{
+  "default_wasm": "game_of_life",
+
+  "default_wasm_path": "./wasm/game_of_life.wasm",
+
+  "available_wasms": {
+    "game_of_life": "./wasm/game_of_life.wasm",
+
+    "snake": "./wasm/snake.wasm"
+  }
+}
