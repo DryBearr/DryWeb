@@ -1,22 +1,30 @@
 /*
   ===============================================================
   File: core.js
-  Description: Init worker base on given url params
+  Description: Core script for website inserting links, initilizing workers, establishint communication between them 
   Author: DryBearr
   ===============================================================
 */
 
-import {
-  isLoopRunning,
-  renderLoop,
-  setFrame,
-  setWidth,
-  setHeight,
-} from "./render_canvas2d.js";
-import config from "./available_wasms.json" with { type: "json" };
-
 //Config
+import config from "./available_wasms.json" with { type: "json" };
 let loadWasm = config.default_wasm_path;
+
+//Insert links
+const nav = document.getElementById("wasm-links");
+
+const urlParams = new URLSearchParams(window.location.search);
+const currentHref = urlParams.get("wasm") || config.default_wasm;
+
+Object.entries(config.available_wasms).forEach(([key, path]) => {
+  const link = document.createElement("a");
+  link.innerText = key;
+  link.href = `?wasm=${key}`;
+  if (key === currentHref) {
+    link.classList.add("active-link");
+  }
+  nav.append(link);
+});
 
 //Try to load wasm base on given param in url
 const queryString = new URLSearchParams(window.location.search);
@@ -29,59 +37,76 @@ if (queryString.has("wasm")) {
   }
 }
 
-console.log("[Loader] Using wasm:", loadWasm);
+console.log("[Core] Using wasm:", loadWasm);
 
-//Set start width and height
-const width =
-  document.querySelector("main")?.offsetWidth ||
-  document.querySelector("body")?.offsetWidth;
-const height =
-  document.querySelector("main")?.offsetHeight ||
-  document.querySelector("body")?.offsetHeight;
+// Init Canvas and off screen canvas
+const canvas = document.createElement("canvas");
+canvas.setAttribute("id", "renderer");
 
-if (!width || !height) {
-  console.error(
-    "[Core] no body or main element, can't get height & width. bro wtf ...",
-  );
+const canvasParent =
+  document.querySelector("main") || document.querySelector("body");
+if (!canvasParent) {
+  console.error("[Core] no body or main element. bro wtf ...");
 }
 
-console.log("[Core] Init worker...");
+const width = canvasParent.offsetWidth;
+const height = canvasParent.offsetHeight;
+
+if (!width || !height) {
+  console.error("[Core] can't get height & width. bro wtf ...");
+}
+
+canvas.setAttribute("width", width);
+canvas.setAttribute("height", height);
+canvasParent.append(canvas);
+
+const offScreenCanvas = canvas.transferControlToOffscreen();
+
 // Init worker for wasm
-const worker = new Worker("worker.js", { type: "module" });
+console.log("[Core] Init workers...");
 
-worker.postMessage({
+const workerApi = new Worker("worker_api.js", { type: "module" });
+const workerCanvas = new Worker("worker_canvas.js", { type: "module" });
+
+workerApi.postMessage({
   type: "init",
-  data: {
-    wasm: loadWasm,
-    width: width,
-    height: height,
+  wasm: loadWasm,
+  width: width,
+  height: height,
+});
+
+workerCanvas.postMessage(
+  {
+    type: "init",
+    offScreenCanvas: offScreenCanvas,
   },
-});
+  [offScreenCanvas],
+);
 
-worker.addEventListener("message", function (event) {
-  const data = event.data;
-  if (data.type === "log") {
-    console.log(data.message);
-  }
-});
-
-worker.addEventListener("message", function (event) {
+workerApi.addEventListener("message", function (event) {
   const data = event.data;
   if (data.type === "pixels") {
-    console.log("[Core] reciving pixels from worker.");
-    if (!data.height || !data.width || !data.pixels) {
-      return;
-    }
-
-    if (!isLoopRunning()) {
-      console.log("[Core] started render loop.");
-      renderLoop();
-    }
-
-    setWidth(data.width);
-    setHeight(data.height);
-    setFrame(data.pixels);
+    workerCanvas.postMessage({
+      ...data,
+    });
   }
 });
 
-console.log("[Core] Init worker Done.");
+const resizeObserver = new ResizeObserver((entries) => {
+  for (let entry of entries) {
+    const width = entry.contentRect.width;
+    const height = entry.contentRect.height;
+
+    console.log("[Core] Resized to", width, height);
+
+    workerApi.postMessage({
+      type: "resize",
+      width: Math.floor(width),
+      height: Math.floor(height),
+    });
+  }
+});
+
+resizeObserver.observe(canvasParent);
+
+console.log("[Core] Init workers Done.");

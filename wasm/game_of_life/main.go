@@ -10,21 +10,43 @@ package main
 
 import (
 	"math/rand"
+	"sync"
+	"time"
 	"wasm/render"
 )
 
 func main() {
-	width := render.GetWidth()
-	height := render.GetHeight()
+	size := render.Api.GetSize()
 
-	frame1D := make([]render.Pixel, width*height)
+	var frameMutex sync.Mutex
 
-	SetRandomFrame(&frame1D)
-	for {
-		SetRandomFrame(&frame1D)
-		render.AddFrame(&frame1D)
+	frame1D := make([]render.Pixel, size.Width*size.Height)
+
+	changeSize := func(s render.Size) error {
+		frameMutex.Lock()
+		defer frameMutex.Unlock()
+
+		if size.Width == s.Width && size.Height == s.Height {
+			return nil
+		}
+		size = s
+
+		frame1D = make([]render.Pixel, s.Width*s.Height)
+
+		return nil
 	}
 
+	render.Api.RegisterResizeEventListener(changeSize)
+
+	SetRandomFrame(&frame1D)
+
+	for {
+		SetRandomFrame(&frame1D)
+
+		time.Sleep(16 * time.Millisecond)
+
+		render.Api.DrawFrame(&frame1D, size)
+	}
 }
 
 func SetRandomFrame(frame1D *[]render.Pixel) {
