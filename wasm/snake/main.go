@@ -13,14 +13,19 @@ import (
 	"sync"
 	"time"
 	"wasm/render"
+	"wasm/webrender"
 )
 
 func main() {
-	size := render.Api.GetSize()
+	api := render.Renderer(webrender.Api)
+	size := api.GetSize()
 
 	var frameMutex sync.Mutex
 
-	frame1D := make([]render.Pixel, size.Width*size.Height)
+	frame2D := make([][]render.Pixel, size.Height)
+	for idx := range frame2D {
+		frame2D[idx] = make([]render.Pixel, size.Width)
+	}
 
 	changeSize := func(s render.Size) error {
 		frameMutex.Lock()
@@ -31,37 +36,47 @@ func main() {
 		}
 		size = s
 
-		frame1D = make([]render.Pixel, s.Width*s.Height)
-
+		frame2D = make([][]render.Pixel, s.Height)
+		for idx := range frame2D {
+			frame2D[idx] = make([]render.Pixel, s.Width)
+		}
 		return nil
 	}
 
-	render.Api.RegisterResizeEventListener(changeSize)
+	api.RegisterResizeEventListener(changeSize)
 
-	SetRandomFrame(&frame1D)
+	SetRandomFrame(&frame2D)
 
 	for {
-		SetRandomFrame(&frame1D)
+		SetRandomFrame(&frame2D)
 
 		time.Sleep(16 * time.Millisecond)
 
-		render.Api.DrawFrame(&frame1D, size)
+		api.DrawFrame(&frame2D, size)
 	}
 }
 
-func SetRandomFrame(frame1D *[]render.Pixel) {
-	for idx, pixel := range *frame1D {
-		if rand.Intn(3)%2 == 0 {
-			pixel.R = 255
-			pixel.G = 255
-			pixel.B = 255
-		} else {
-			pixel.R = 0
-			pixel.G = 0
-			pixel.B = 0
-		}
-		pixel.A = 255
+// Any live cell with fewer than two live neighbours dies (referred to as underpopulation).
+//
+// Any live cell with more than three live neighbours dies (referred to as overpopulation).
+// Any live cell with two or three live neighbours lives, unchanged, to the next generation.
+// Any dead cell with exactly three live neighbours comes to life.
 
-		(*frame1D)[idx] = pixel
+func SetRandomFrame(frame2D *[][]render.Pixel) {
+	for _, frame1D := range *frame2D {
+		for idx, pixel := range frame1D {
+			if rand.Intn(3)%2 == 0 {
+				pixel.R = 255
+				pixel.G = 255
+				pixel.B = 255
+			} else {
+				pixel.R = 0
+				pixel.G = 0
+				pixel.B = 0
+			}
+			pixel.A = 255
+
+			frame1D[idx] = pixel
+		}
 	}
 }

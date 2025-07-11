@@ -4,14 +4,22 @@
 // Author: DryBearr
 // ===============================================================
 
-//go:build js && wasm
-
 package render
+
+// TODO: godoc
+type Coordinate struct {
+	X int
+	Y int
+}
 
 // TODO: godoc
 type Size struct {
 	Width  int
 	Height int
+}
+
+func (this *Size) EqualOrGreater(other Size) bool {
+	return this.Width >= other.Width && this.Height >= other.Height
 }
 
 // TODO: godoc
@@ -22,14 +30,24 @@ type Pixel struct {
 	A uint8
 }
 
-// TODO: godoc
-type SizeChangeHandler func(size Size) error
+// Window Event handler
+type SizeChangeHandler func(s Size) error
+
+// Mouse event handlers
+type MouseClickHandler func(c Coordinate) error
+type MouseDragHandler func(c Coordinate) error
 
 // TODO: godoc
 type Renderer interface {
-	RegisterResizeEventListener(handler SizeChangeHandler) error
-
-	DrawFrame(frame *[]Pixel, size Size) error
+	DrawFrame(frame *[][]Pixel, s Size) error
+	DrawFramePartly(frame *[][]Pixel, s Size, c Coordinate) error
 
 	GetSize() Size
+
+	//Window Events
+	RegisterResizeEventListener(handler SizeChangeHandler) error
+
+	//Mouse Events
+	RegisterMouseClickEventListener(handler MouseClickHandler) error
+	RegisterMouseDragEventListener(handler MouseDragHandler) error
 }

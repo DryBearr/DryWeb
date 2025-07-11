@@ -85,7 +85,16 @@ workerCanvas.postMessage(
 
 workerApi.addEventListener("message", function (event) {
   const data = event.data;
-  if (data.type === "pixels") {
+  if (data.type === "frame") {
+    workerCanvas.postMessage({
+      ...data,
+    });
+  }
+});
+
+workerApi.addEventListener("message", function (event) {
+  const data = event.data;
+  if (data.type === "framePart") {
     workerCanvas.postMessage({
       ...data,
     });
@@ -108,5 +117,31 @@ const resizeObserver = new ResizeObserver((entries) => {
 });
 
 resizeObserver.observe(canvasParent);
+
+//Drag event logic
+let isDraging = false;
+canvas.addEventListener("mousedown", (event) => {
+  isDraging = true;
+
+  const rect = canvas.getBoundingClientRect();
+  const x = Math.floor(event.clientX - rect.left);
+  const y = Math.floor(event.clientY - rect.top);
+
+  workerApi.postMessage({ type: "mouseDrag", x, y });
+});
+
+canvas.addEventListener("mousemove", (event) => {
+  if (!isDraging) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const x = Math.floor(event.clientX - rect.left);
+  const y = Math.floor(event.clientY - rect.top);
+
+  workerApi.postMessage({ type: "mouseDrag", x, y });
+});
+
+canvas.addEventListener("mouseup", (event) => {
+  isDraging = false;
+});
 
 console.log("[Core] Init workers Done.");

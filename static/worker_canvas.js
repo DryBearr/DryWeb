@@ -19,12 +19,12 @@ self.addEventListener("message", (event) => {
   if (type === "init") {
     console.log("[worker_canvas.js] Received init", event.data);
     self.params.offScreenCanvas = event.data.offScreenCanvas;
-    self.params.ctx = self.params.offScreenCanvas.getContext("bitmaprenderer");
+    self.params.ctx = self.params.offScreenCanvas.getContext("2d");
   }
 });
 
 self.addEventListener("message", async (event) => {
-  if (event.data.type === "pixels") {
+  if (event.data.type === "frame") {
     const { pixels, width, height } = event.data;
 
     const imageData = new ImageData(
@@ -32,8 +32,6 @@ self.addEventListener("message", async (event) => {
       width,
       height,
     );
-
-    const bitmap = await createImageBitmap(imageData);
 
     if (
       self.params.offScreenCanvas.width !== width ||
@@ -43,8 +41,20 @@ self.addEventListener("message", async (event) => {
       self.params.offScreenCanvas.height = height;
     }
 
-    self.params.ctx.transferFromImageBitmap(bitmap);
+    self.params.ctx.putImageData(imageData, 0, 0);
+  }
+});
 
-    bitmap.close();
+self.addEventListener("message", async (event) => {
+  if (event.data.type === "framePart") {
+    const { pixels, width, height, x, y } = event.data;
+
+    const imageData = new ImageData(
+      new Uint8ClampedArray(pixels),
+      width,
+      height,
+    );
+
+    self.params.ctx.putImageData(imageData, x, y);
   }
 });
