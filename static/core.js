@@ -119,29 +119,55 @@ const resizeObserver = new ResizeObserver((entries) => {
 resizeObserver.observe(canvasParent);
 
 //Drag event logic
+
+const getCanvasCoordinates = (event) => {
+  const rect = canvas.getBoundingClientRect();
+  if (event.touches && event.touches.length > 0) {
+    return {
+      x: Math.floor(event.touches[0].clientX - rect.left),
+      y: Math.floor(event.touches[0].clientY - rect.top),
+    };
+  } else {
+    return {
+      x: Math.floor(event.clientX - rect.left),
+      y: Math.floor(event.clientY - rect.top),
+    };
+  }
+};
+
 let isDraging = false;
-canvas.addEventListener("mousedown", (event) => {
+
+const handleDragStart = (event) => {
+  event.preventDefault();
+
   isDraging = true;
 
-  const rect = canvas.getBoundingClientRect();
-  const x = Math.floor(event.clientX - rect.left);
-  const y = Math.floor(event.clientY - rect.top);
+  const { x, y } = getCanvasCoordinates(event);
 
   workerApi.postMessage({ type: "mouseDrag", x, y });
-});
+};
 
-canvas.addEventListener("mousemove", (event) => {
+const handleDragMove = (event) => {
+  event.preventDefault();
   if (!isDraging) return;
 
-  const rect = canvas.getBoundingClientRect();
-  const x = Math.floor(event.clientX - rect.left);
-  const y = Math.floor(event.clientY - rect.top);
+  const { x, y } = getCanvasCoordinates(event);
 
   workerApi.postMessage({ type: "mouseDrag", x, y });
-});
+};
 
-canvas.addEventListener("mouseup", (event) => {
+const handleDragEnd = (event) => {
+  event.preventDefault();
+
   isDraging = false;
-});
+};
+
+canvas.addEventListener("mousedown", (event) => handleDragStart(event));
+canvas.addEventListener("mousemove", (event) => handleDragMove(event));
+canvas.addEventListener("mouseup", (event) => handleDragEnd(event));
+
+canvas.addEventListener("touchstart", (event) => handleDragStart(event));
+canvas.addEventListener("touchmove", (event) => handleDragMove(event));
+canvas.addEventListener("touchend", (event) => handleDragEnd(event));
 
 console.log("[Core] Init workers Done.");
