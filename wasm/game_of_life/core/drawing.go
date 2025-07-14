@@ -33,7 +33,7 @@ var (
 func StartDrawingLoop() {
 	go func() {
 		var prev *render.Coordinate
-		timeout := 200 * time.Millisecond
+		timeout := 20 * time.Millisecond
 		timer := time.NewTimer(timeout)
 		defer timer.Stop()
 
@@ -58,8 +58,12 @@ func StartDrawingLoop() {
 				timer.Reset(timeout)
 
 			case <-timer.C:
-				// Timeout expired, reset prev
+				if prev != nil {
+					drawPoint(*prev)
+				}
+
 				prev = nil
+
 				timer.Reset(timeout)
 			}
 		}
@@ -77,6 +81,31 @@ func drawLine(start render.Coordinate, end render.Coordinate) {
 	diffX := abs(x0 - x1)
 	diffY := abs(y0 - y1)
 
+	minX := min(x0, x1)
+	minY := min(y0, y1)
+
+	tempSize := render.Size{
+		Width:  diffX + 1,
+		Height: diffY + 1,
+	}
+
+	tempFrame := make([][]render.Pixel, tempSize.Height)
+
+	frameMutex.Lock()
+	for row := range tempFrame {
+		tempFrame[row] = make([]render.Pixel, tempSize.Width)
+
+		for column := range tempFrame[row] {
+			frameY := minY + row
+			frameX := minX + column
+
+			if frameY >= 0 && frameY < len(frame2D) && frameX >= 0 && frameX < len(frame2D[0]) {
+				tempFrame[row][column] = frame2D[frameY][frameX]
+			}
+		}
+	}
+	frameMutex.Unlock()
+
 	stepX := 1
 	if x0 > x1 {
 		stepX = -1
@@ -90,10 +119,18 @@ func drawLine(start render.Coordinate, end render.Coordinate) {
 	err := diffX - diffY
 	frameMutex.Lock()
 	for {
-		if y0 <= 0 || x0 <= 0 || y0 > len(frame2D) || x0 > len(frame2D[0]) {
-			// skip or log
-		} else {
-			frame2D[y0-1][x0-1] = pixel
+		// Compute tempFrame indices
+		tempX := x0 - minX
+		tempY := y0 - minY
+
+		// Check tempFrame bounds
+		if tempY >= 0 && tempY < tempSize.Height && tempX >= 0 && tempX < tempSize.Width {
+			tempFrame[tempY][tempX] = pixel
+		}
+
+		// Update main frame if needed
+		if y0 >= 0 && y0 < len(frame2D) && x0 >= 0 && x0 < len(frame2D[0]) {
+			frame2D[y0][x0] = pixel
 		}
 
 		if x0 == x1 && y0 == y1 {
@@ -114,5 +151,15 @@ func drawLine(start render.Coordinate, end render.Coordinate) {
 	}
 	frameMutex.Unlock()
 
-	api.DrawFrame(&frame2D, size)
+	api.DrawFramePartly(&tempFrame, tempSize, render.Coordinate{X: minX, Y: minY})
+}
+
+func drawPoint(c render.Coordinate) {
+	frameMutex.Lock()
+
+	frame2D[c.Y][c.X] = pixel
+
+	api.DrawFramePartly(&pointFrame, pointSize, c)
+
+	frameMutex.Unlock()
 }
