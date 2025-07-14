@@ -155,11 +155,7 @@ func drawLine(start render.Coordinate, end render.Coordinate) {
 }
 
 func drawPoint(c render.Coordinate) {
-	frameMutex.Lock()
-
-	frame2D[c.Y][c.X] = pixel
+	setPixel(pixel, c)
 
 	api.DrawFramePartly(&pointFrame, pointSize, c)
-
-	frameMutex.Unlock()
 }
