@@ -136,6 +136,7 @@ const getCanvasCoordinates = (event) => {
 };
 
 let isDraging = false;
+let prevPoint = null;
 
 const handleDragStart = (event) => {
   event.preventDefault();
@@ -144,7 +145,7 @@ const handleDragStart = (event) => {
 
   const { x, y } = getCanvasCoordinates(event);
 
-  workerApi.postMessage({ type: "mouseDrag", x, y });
+  prevPoint = { x, y };
 };
 
 const handleDragMove = (event) => {
@@ -153,13 +154,44 @@ const handleDragMove = (event) => {
 
   const { x, y } = getCanvasCoordinates(event);
 
+  if (prevPoint != null) {
+    workerApi.postMessage({
+      type: "mouseDrag",
+      x: prevPoint.x,
+      y: prevPoint.y,
+    });
+
+    prevPoint = null;
+  }
+
   workerApi.postMessage({ type: "mouseDrag", x, y });
 };
 
 const handleDragEnd = (event) => {
   event.preventDefault();
 
+  const { x, y } = getCanvasCoordinates(event);
+
+  if (prevPoint) {
+    const dx = Math.abs(x - prevPoint.x);
+    const dy = Math.abs(y - prevPoint.y);
+    if (dx < 3 && dy < 3) {
+      workerApi.postMessage({
+        type: "mouseClick",
+        x: prevPoint.x,
+        y: prevPoint.y,
+      });
+    }
+  } else {
+    workerApi.postMessage({
+      type: "mouseDragEnd",
+      x,
+      y,
+    });
+  }
+
   isDraging = false;
+  prevPoint = null;
 };
 
 canvas.addEventListener("mousedown", (event) => handleDragStart(event));

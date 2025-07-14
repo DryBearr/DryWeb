@@ -42,12 +42,14 @@ func init() {
 	js.Global().Call("addEventListener", "message", js.FuncOf(Api.resizeEventListener))
 	js.Global().Call("addEventListener", "message", js.FuncOf(Api.mouseClickEventListener))
 	js.Global().Call("addEventListener", "message", js.FuncOf(Api.mouseDragEventListener))
+	js.Global().Call("addEventListener", "message", js.FuncOf(Api.mouseDragEndEventListener))
 }
 
 type WorkerApi struct {
-	resizeHandlers     []render.SizeChangeHandler
-	mouseClickHandlers []render.MouseClickHandler
-	mouseDragHandlers  []render.MouseDragHandler
+	resizeHandlers       []render.SizeChangeHandler
+	mouseClickHandlers   []render.MouseClickHandler
+	mouseDragHandlers    []render.MouseDragHandler
+	mouseDragEndHandlers []render.MouseDragEndHandler
 
 	size render.Size
 
@@ -131,6 +133,11 @@ func (worker *WorkerApi) RegisterMouseClickEventListener(handler render.MouseCli
 
 func (worker *WorkerApi) RegisterMouseDragEventListener(handler render.MouseDragHandler) error {
 	worker.mouseDragHandlers = append(worker.mouseDragHandlers, handler)
+	return nil
+}
+
+func (worker *WorkerApi) RegisterMouseDragEndEventListener(handler render.MouseDragEndHandler) error {
+	worker.mouseDragEndHandlers = append(worker.mouseDragEndHandlers, handler)
 	return nil
 }
 
@@ -282,4 +289,41 @@ func (worker *WorkerApi) resizeEventListener(this js.Value, args []js.Value) any
 	log.Println("[WorkerApi] Notified every resize handler")
 
 	return nil
+}
+
+func (worker *WorkerApi) mouseDragEndEventListener(this js.Value, args []js.Value) any {
+	log.Println("[WorkerApi] Recieved mouseDragEnd event")
+
+	jsObj := worker.getMessageData(args, "mouseDragEnd")
+	if jsObj == nil {
+		return nil
+	}
+
+	xVal := jsObj.Get("x")
+	if xVal.Type() != js.TypeNumber {
+		log.Println("[WorkerApi] x is missing or not a number")
+
+		return nil
+	}
+
+	yVal := jsObj.Get("y")
+	if yVal.Type() != js.TypeNumber {
+		log.Println("[WorkerApi] y is missing or not a number")
+
+		return nil
+	}
+
+	c := render.Coordinate{
+		X: xVal.Int(),
+		Y: yVal.Int(),
+	}
+
+	for _, handler := range worker.mouseDragEndHandlers {
+		handler(c)
+	}
+
+	log.Println("[WorkerApi] Notified every mouseDragEnd handler")
+
+	return nil
+
 }

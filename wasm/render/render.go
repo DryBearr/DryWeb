@@ -36,6 +36,7 @@ type SizeChangeHandler func(s Size) error
 // Mouse event handlers
 type MouseClickHandler func(c Coordinate) error
 type MouseDragHandler func(c Coordinate) error
+type MouseDragEndHandler func(c Coordinate) error
 
 // TODO: godoc
 type Renderer interface {
@@ -50,4 +51,5 @@ type Renderer interface {
 	//Mouse Events
 	RegisterMouseClickEventListener(handler MouseClickHandler) error
 	RegisterMouseDragEventListener(handler MouseDragHandler) error
+	RegisterMouseDragEndEventListener(handler MouseDragEndHandler) error
 }

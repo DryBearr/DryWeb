@@ -8,89 +8,117 @@ package core
 
 import (
 	"sync"
+	"time"
 	"wasm/render"
 )
 
+type RenderFrame struct {
+	Frame *[][]render.Pixel
+	C     *render.Coordinate
+	Size  render.Size
+}
+
 var (
-	api  render.Renderer
+	api render.Renderer
+
+	//Renderer
+	latency   time.Duration
+	frameChan chan RenderFrame
+
+	//Drawing vars
 	size render.Size
 
 	frameMutex sync.Mutex
 	frame2D    [][]render.Pixel
+
+	resetPrevPoint          chan struct{}
+	drawPointCoordinateChan chan render.Coordinate
+	drawLineCoordinateChan  chan render.Coordinate
+
+	pointSize render.Size
+
+	deadPixel       render.Pixel
+	alivePixel      render.Pixel
+	backgroundPixel render.Pixel
+
+	//Population vars
+	maxPopulationCordinate render.Coordinate
+	aliveCells             chan map[render.Coordinate]any
 )
 
 func StartGame(renderer render.Renderer) error {
 	api = renderer
+
+	latency = 16 * time.Millisecond // 60 fps 1 / 60 ~= 16.6
+
 	size = api.GetSize()
-	frame2D = make([][]render.Pixel, size.Height)
-	for idx := range frame2D {
-		frame2D[idx] = make([]render.Pixel, size.Width)
-	}
-	SetBlackBoard()
 
-	api.DrawFrame(&frame2D, size)
+	drawLineCoordinateChan = make(chan render.Coordinate, 100)  //TODO: use passed param
+	drawPointCoordinateChan = make(chan render.Coordinate, 100) //TODO: use passed param
+	resetPrevPoint = make(chan struct{}, 1)
+	frameChan = make(chan RenderFrame, 144) //TODO: use passed param
 
-	changeSize := func(s render.Size) error {
-		if size.Width == s.Width && size.Height == s.Height {
-			return nil
-		}
+	pointSize = render.Size{Width: 1, Height: 1}
 
-		size = s
-
-		frameMutex.Lock()
-		frame2D = make([][]render.Pixel, s.Height)
-		for idx := range frame2D {
-			frame2D[idx] = make([]render.Pixel, s.Width)
-		}
-		frameMutex.Unlock()
-
-		SetBlackBoard()
-
-		api.DrawFrame(&frame2D, size)
-		return nil
+	deadPixel = render.Pixel{
+		R: 0,
+		G: 0,
+		B: 0,
+		A: 255,
 	}
 
-	onDrag := func(c render.Coordinate) error {
-		AddQueue(c)
-
-		return nil
+	alivePixel = render.Pixel{
+		R: 255,
+		G: 255,
+		B: 255,
+		A: 255,
 	}
+
+	backgroundPixel = render.Pixel{
+		R: 0,
+		G: 0,
+		B: 0,
+		A: 255,
+	}
+
+	setBoard()
 
 	api.RegisterResizeEventListener(changeSize)
 	api.RegisterMouseDragEventListener(onDrag)
+	api.RegisterMouseClickEventListener(onClick)
+	api.RegisterMouseDragEndEventListener(onDragEnd)
 
+	StartRenderLoop()
 	StartDrawingLoop()
 
 	return nil
 }
 
-func SetBlackBoard() {
-	frameMutex.Lock()
-	defer frameMutex.Unlock()
-
-	for _, frame1D := range frame2D {
-		for idx, pixel := range frame1D {
-			pixel.R = 0
-			pixel.G = 0
-			pixel.B = 0
-			pixel.A = 255
-			(frame1D)[idx] = pixel
-		}
+func changeSize(s render.Size) error {
+	if size.Width == s.Width && size.Height == s.Height {
+		return nil
 	}
+
+	size = s
+	setBoard()
+
+	return nil
 }
 
-func setPixel(pixel render.Pixel, c render.Coordinate) {
-	frameMutex.Lock()
-	defer frameMutex.Unlock()
+func onClick(c render.Coordinate) error {
+	AddPointCordinateQueue(c)
 
-	frame2D[c.Y][c.X] = pixel
+	return nil
 }
 
-func getPixel(c render.Coordinate) render.Pixel {
-	frameMutex.Lock()
-	defer frameMutex.Unlock()
+func onDrag(c render.Coordinate) error {
+	AddLineCordinateQueue(c)
 
-	pixel := frame2D[c.Y][c.X]
+	return nil
+}
 
-	return pixel
+func onDragEnd(c render.Coordinate) error {
+	ResetPrevPoint()
+
+	return nil
 }

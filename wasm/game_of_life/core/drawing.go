@@ -7,39 +7,16 @@
 package core
 
 import (
-	"time"
 	"wasm/render"
-)
-
-var (
-	coordinateChan = make(chan render.Coordinate, 100)
-
-	color uint8 = 255
-	pixel       = render.Pixel{
-		R: color,
-		G: color,
-		B: color,
-		A: 255,
-	}
-
-	pointFrame = [][]render.Pixel{
-		{
-			pixel,
-		},
-	}
-	pointSize = render.Size{Width: 1, Height: 1}
 )
 
 func StartDrawingLoop() {
 	go func() {
 		var prev *render.Coordinate
-		timeout := 20 * time.Millisecond
-		timer := time.NewTimer(timeout)
-		defer timer.Stop()
 
 		for {
 			select {
-			case c, ok := <-coordinateChan:
+			case c, ok := <-drawLineCoordinateChan:
 				if !ok {
 					return
 				}
@@ -47,34 +24,35 @@ func StartDrawingLoop() {
 				if prev == nil {
 					prev = &c
 				} else {
-					drawLine(*prev, c)
+					drawLine(alivePixel, *prev, c)
 					prev = &c
 				}
 
-				// Reset timer
-				if !timer.Stop() {
-					<-timer.C
-				}
-				timer.Reset(timeout)
-
-			case <-timer.C:
-				if prev != nil {
-					drawPoint(*prev)
-				}
-
+			case <-resetPrevPoint:
 				prev = nil
 
-				timer.Reset(timeout)
+			case point, ok := <-drawPointCoordinateChan:
+				if ok {
+					drawPoint(alivePixel, point)
+				}
 			}
 		}
 	}()
 }
 
-func AddQueue(c render.Coordinate) {
-	coordinateChan <- c
+func AddLineCordinateQueue(c render.Coordinate) {
+	drawLineCoordinateChan <- c
 }
 
-func drawLine(start render.Coordinate, end render.Coordinate) {
+func AddPointCordinateQueue(c render.Coordinate) {
+	drawPointCoordinateChan <- c
+}
+
+func ResetPrevPoint() {
+	resetPrevPoint <- struct{}{}
+}
+
+func drawLine(pixel render.Pixel, start render.Coordinate, end render.Coordinate) {
 	x0, y0 := start.X, start.Y
 	x1, y1 := end.X, end.Y
 
@@ -151,11 +129,48 @@ func drawLine(start render.Coordinate, end render.Coordinate) {
 	}
 	frameMutex.Unlock()
 
-	api.DrawFramePartly(&tempFrame, tempSize, render.Coordinate{X: minX, Y: minY})
+	AddFrame(RenderFrame{Frame: &tempFrame, Size: tempSize, C: &render.Coordinate{X: minX, Y: minY}})
 }
 
-func drawPoint(c render.Coordinate) {
+func drawPoint(pixel render.Pixel, c render.Coordinate) {
 	setPixel(pixel, c)
 
-	api.DrawFramePartly(&pointFrame, pointSize, c)
+	pointFrame := [][]render.Pixel{
+		{
+			pixel,
+		},
+	}
+
+	AddFrame(RenderFrame{Frame: &pointFrame, Size: pointSize, C: &c})
+}
+
+func setBoard() {
+	frameMutex.Lock()
+	defer frameMutex.Unlock()
+
+	frame2D = make([][]render.Pixel, size.Height)
+	for row := range frame2D {
+		frame2D[row] = make([]render.Pixel, size.Width)
+		for column := range frame2D[row] {
+			frame2D[row][column] = backgroundPixel
+		}
+	}
+
+	AddFrame(RenderFrame{Frame: &frame2D, Size: size})
+}
+
+func setPixel(pixel render.Pixel, c render.Coordinate) {
+	frameMutex.Lock()
+	defer frameMutex.Unlock()
+
+	frame2D[c.Y][c.X] = pixel
+}
+
+func getPixel(c render.Coordinate) render.Pixel {
+	frameMutex.Lock()
+	defer frameMutex.Unlock()
+
+	pixel := frame2D[c.Y][c.X]
+
+	return pixel
 }
