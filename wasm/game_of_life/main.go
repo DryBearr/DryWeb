@@ -15,5 +15,4 @@ import (
 
 func main() {
 	core.StartGame(webrender.Api)
-	select {}
 }

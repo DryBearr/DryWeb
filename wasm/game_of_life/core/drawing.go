@@ -16,7 +16,7 @@ func StartDrawingLoop() {
 
 		for {
 			select {
-			case c, ok := <-drawLineCoordinateChan:
+			case c, ok := <-DrawLineCoordinateChan:
 				if !ok {
 					return
 				}
@@ -24,16 +24,20 @@ func StartDrawingLoop() {
 				if prev == nil {
 					prev = &c
 				} else {
-					drawLine(alivePixel, *prev, c)
+					predictedCoordinates := DrawLine(AlivePixel, *prev, c)
+
+					ResurectCellMany(predictedCoordinates) //TODO: this mf is a black sheep so move somewhere else
+
 					prev = &c
 				}
 
-			case <-resetPrevPoint:
+			case <-ResetPrevPointChan:
 				prev = nil
 
-			case point, ok := <-drawPointCoordinateChan:
+			case point, ok := <-DrawPointCoordinateChan:
 				if ok {
-					drawPoint(alivePixel, point)
+					DrawPoint(AlivePixel, point)
+					ResurectCell(point) //TODO: this mf is a black sheep so move somewhere else
 				}
 			}
 		}
@@ -41,23 +45,23 @@ func StartDrawingLoop() {
 }
 
 func AddLineCordinateQueue(c render.Coordinate) {
-	drawLineCoordinateChan <- c
+	DrawLineCoordinateChan <- c
 }
 
 func AddPointCordinateQueue(c render.Coordinate) {
-	drawPointCoordinateChan <- c
+	DrawPointCoordinateChan <- c
 }
 
 func ResetPrevPoint() {
-	resetPrevPoint <- struct{}{}
+	ResetPrevPointChan <- struct{}{}
 }
 
-func drawLine(pixel render.Pixel, start render.Coordinate, end render.Coordinate) {
+func DrawLine(pixel render.Pixel, start render.Coordinate, end render.Coordinate) []render.Coordinate {
 	x0, y0 := start.X, start.Y
 	x1, y1 := end.X, end.Y
 
-	diffX := abs(x0 - x1)
-	diffY := abs(y0 - y1)
+	diffX := Abs(x0 - x1)
+	diffY := Abs(y0 - y1)
 
 	minX := min(x0, x1)
 	minY := min(y0, y1)
@@ -67,9 +71,13 @@ func drawLine(pixel render.Pixel, start render.Coordinate, end render.Coordinate
 		Height: diffY + 1,
 	}
 
+	reserveSize := max(diffX, diffY)
+
+	ultraInstinctCoordinates := make([]render.Coordinate, 0, reserveSize) //predicted coordinates between start and end points
+
 	tempFrame := make([][]render.Pixel, tempSize.Height)
 
-	frameMutex.Lock()
+	FrameMutex.Lock()
 	for row := range tempFrame {
 		tempFrame[row] = make([]render.Pixel, tempSize.Width)
 
@@ -77,12 +85,12 @@ func drawLine(pixel render.Pixel, start render.Coordinate, end render.Coordinate
 			frameY := minY + row
 			frameX := minX + column
 
-			if frameY >= 0 && frameY < len(frame2D) && frameX >= 0 && frameX < len(frame2D[0]) {
-				tempFrame[row][column] = frame2D[frameY][frameX]
+			if frameY >= 0 && frameY < len(Frame2D) && frameX >= 0 && frameX < len(Frame2D[0]) {
+				tempFrame[row][column] = Frame2D[frameY][frameX]
 			}
 		}
 	}
-	frameMutex.Unlock()
+	FrameMutex.Unlock()
 
 	stepX := 1
 	if x0 > x1 {
@@ -95,7 +103,8 @@ func drawLine(pixel render.Pixel, start render.Coordinate, end render.Coordinate
 	}
 
 	err := diffX - diffY
-	frameMutex.Lock()
+
+	FrameMutex.Lock()
 	for {
 		// Compute tempFrame indices
 		tempX := x0 - minX
@@ -107,8 +116,9 @@ func drawLine(pixel render.Pixel, start render.Coordinate, end render.Coordinate
 		}
 
 		// Update main frame if needed
-		if y0 >= 0 && y0 < len(frame2D) && x0 >= 0 && x0 < len(frame2D[0]) {
-			frame2D[y0][x0] = pixel
+		if y0 >= 0 && y0 < len(Frame2D) && x0 >= 0 && x0 < len(Frame2D[0]) {
+			Frame2D[y0][x0] = pixel
+			ultraInstinctCoordinates = append(ultraInstinctCoordinates, render.Coordinate{X: x0, Y: y0})
 		}
 
 		if x0 == x1 && y0 == y1 {
@@ -127,13 +137,14 @@ func drawLine(pixel render.Pixel, start render.Coordinate, end render.Coordinate
 			y0 += stepY
 		}
 	}
-	frameMutex.Unlock()
-
+	FrameMutex.Unlock()
 	AddFrame(RenderFrame{Frame: &tempFrame, Size: tempSize, C: &render.Coordinate{X: minX, Y: minY}})
+
+	return ultraInstinctCoordinates
 }
 
-func drawPoint(pixel render.Pixel, c render.Coordinate) {
-	setPixel(pixel, c)
+func DrawPoint(pixel render.Pixel, c render.Coordinate) {
+	SetPixel(pixel, c)
 
 	pointFrame := [][]render.Pixel{
 		{
@@ -141,36 +152,25 @@ func drawPoint(pixel render.Pixel, c render.Coordinate) {
 		},
 	}
 
-	AddFrame(RenderFrame{Frame: &pointFrame, Size: pointSize, C: &c})
+	AddFrame(RenderFrame{Frame: &pointFrame, Size: PointSize, C: &c})
 }
 
-func setBoard() {
-	frameMutex.Lock()
-	defer frameMutex.Unlock()
+func SetBoard() {
+	FrameMutex.Lock()
+	defer FrameMutex.Unlock()
 
-	frame2D = make([][]render.Pixel, size.Height)
-	for row := range frame2D {
-		frame2D[row] = make([]render.Pixel, size.Width)
-		for column := range frame2D[row] {
-			frame2D[row][column] = backgroundPixel
+	Frame2D = make([][]render.Pixel, Size.Height)
+	for row := range Frame2D {
+		Frame2D[row] = make([]render.Pixel, Size.Width)
+		for column := range Frame2D[row] {
+			Frame2D[row][column] = BackgroundPixel
 		}
 	}
-
-	AddFrame(RenderFrame{Frame: &frame2D, Size: size})
 }
 
-func setPixel(pixel render.Pixel, c render.Coordinate) {
-	frameMutex.Lock()
-	defer frameMutex.Unlock()
+func SetPixel(pixel render.Pixel, c render.Coordinate) {
+	FrameMutex.Lock()
+	defer FrameMutex.Unlock()
 
-	frame2D[c.Y][c.X] = pixel
-}
-
-func getPixel(c render.Coordinate) render.Pixel {
-	frameMutex.Lock()
-	defer frameMutex.Unlock()
-
-	pixel := frame2D[c.Y][c.X]
-
-	return pixel
+	Frame2D[c.Y][c.X] = pixel
 }

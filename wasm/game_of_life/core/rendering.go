@@ -12,34 +12,34 @@ import (
 
 func StartRenderLoop() {
 	go func() {
-		timer := time.NewTimer(latency)
+		timer := time.NewTimer(Latency)
 		defer timer.Stop()
 
 		for {
 			select {
-			case frame, ok := <-frameChan:
+			case frame, ok := <-FrameChan:
 				if !ok {
 					return
 				}
 
 				if frame.C != nil {
-					api.DrawFramePartly(frame.Frame, frame.Size, *frame.C)
+					Api.DrawFramePartly(frame.Frame, frame.Size, *frame.C)
 				} else {
-					api.DrawFrame(frame.Frame, frame.Size)
+					Api.DrawFrame(frame.Frame, frame.Size)
 				}
 
 				if !timer.Stop() {
 					<-timer.C
 				}
-				timer.Reset(latency)
+				timer.Reset(Latency)
 
 			case <-timer.C:
-				timer.Reset(latency)
+				timer.Reset(Latency)
 			}
 		}
 	}()
 }
 
 func AddFrame(f RenderFrame) {
-	frameChan <- f
+	FrameChan <- f
 }
