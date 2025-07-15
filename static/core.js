@@ -160,7 +160,7 @@ if (!isMobileViewport()) {
   });
 
   const defaultSizeButton = document.createElement("button");
-  defaultSizeButton.textContent = "default size";
+  defaultSizeButton.textContent = "Default size";
   defaultSizeButton.addEventListener("click", () => {
     ({ width, height } = config.window_size.default);
     workerApi.postMessage({
