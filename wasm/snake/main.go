@@ -9,6 +9,7 @@
 package main
 
 import (
+	"log"
 	"math/rand"
 	"sync"
 	"time"
@@ -43,9 +44,13 @@ func main() {
 		return nil
 	}
 
-	api.RegisterResizeEventListener(changeSize)
+	keyDown := func(key render.Key) error {
+		log.Println(key)
+		return nil
+	}
 
-	SetRandomFrame(&frame2D)
+	api.RegisterResizeEventListener(changeSize)
+	api.RegisterKeyDownEventListener(keyDown)
 
 	for {
 		SetRandomFrame(&frame2D)

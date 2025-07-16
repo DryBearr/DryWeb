@@ -298,6 +298,21 @@ canvas.addEventListener("touchend", (event) => handleDragEnd(event));
 
 console.log("[Core] Init workers Done.");
 
+//Event key
+//TODO: window or document hmmm
+// window.addEventListener("keydown", (event) => {
+//   workerApi.postMessage({
+//     type: "keyDown",
+//     key: event.key,
+//   });
+// });
+document.addEventListener("keydown", (event) => {
+  workerApi.postMessage({
+    type: "keyDown",
+    key: event.key,
+  });
+});
+
 //Utility functions
 function isMobileViewport() {
   return window.matchMedia("(max-width: 767px)").matches;

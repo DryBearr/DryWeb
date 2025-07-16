@@ -6,6 +6,17 @@
 
 package render
 
+type Key string
+
+const (
+	WKey Key = "w"
+	AKey Key = "a"
+	SKey Key = "s"
+	DKey Key = "d"
+	PKey Key = "p"
+	RKey Key = "r"
+)
+
 // TODO: godoc
 type Coordinate struct {
 	X int
@@ -38,6 +49,11 @@ type MouseClickHandler func(c Coordinate) error
 type MouseDragHandler func(c Coordinate) error
 type MouseDragEndHandler func(c Coordinate) error
 
+// Key event handlers
+type KeyDownHandler func(key Key) error
+
+//TODO: type KeyUpHandler func(key Key) error
+
 // TODO: godoc
 type Renderer interface {
 	DrawFrame(frame *[][]Pixel, s Size) error
@@ -52,4 +68,7 @@ type Renderer interface {
 	RegisterMouseClickEventListener(handler MouseClickHandler) error
 	RegisterMouseDragEventListener(handler MouseDragHandler) error
 	RegisterMouseDragEndEventListener(handler MouseDragEndHandler) error
+
+	//Key Events
+	RegisterKeyDownEventListener(handler KeyDownHandler) error
 }

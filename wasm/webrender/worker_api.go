@@ -11,6 +11,7 @@ package webrender
 import (
 	"fmt"
 	"log"
+	"strings"
 	"syscall/js"
 	"wasm/render"
 )
@@ -43,6 +44,7 @@ func init() {
 	js.Global().Call("addEventListener", "message", js.FuncOf(Api.mouseClickEventListener))
 	js.Global().Call("addEventListener", "message", js.FuncOf(Api.mouseDragEventListener))
 	js.Global().Call("addEventListener", "message", js.FuncOf(Api.mouseDragEndEventListener))
+	js.Global().Call("addEventListener", "message", js.FuncOf(Api.keyDownEventListener))
 }
 
 type WorkerApi struct {
@@ -50,6 +52,7 @@ type WorkerApi struct {
 	mouseClickHandlers   []render.MouseClickHandler
 	mouseDragHandlers    []render.MouseDragHandler
 	mouseDragEndHandlers []render.MouseDragEndHandler
+	keyDownHandlers      []render.KeyDownHandler
 
 	size render.Size
 
@@ -138,6 +141,11 @@ func (worker *WorkerApi) RegisterMouseDragEventListener(handler render.MouseDrag
 
 func (worker *WorkerApi) RegisterMouseDragEndEventListener(handler render.MouseDragEndHandler) error {
 	worker.mouseDragEndHandlers = append(worker.mouseDragEndHandlers, handler)
+	return nil
+}
+
+func (worker *WorkerApi) RegisterKeyDownEventListener(handler render.KeyDownHandler) error {
+	worker.keyDownHandlers = append(worker.keyDownHandlers, handler)
 	return nil
 }
 
@@ -326,4 +334,36 @@ func (worker *WorkerApi) mouseDragEndEventListener(this js.Value, args []js.Valu
 
 	return nil
 
+}
+
+// TODO: key down, key up
+func (worker *WorkerApi) keyDownEventListener(this js.Value, args []js.Value) any {
+	log.Println("[WorkerApi] Recieved keyDown event")
+
+	jsObj := worker.getMessageData(args, "keyDown")
+	if jsObj == nil {
+		return nil
+	}
+
+	jsKey := jsObj.Get("key")
+	if jsKey.Type() != js.TypeString {
+		log.Println("[WorkerApi] key is missing or not a string")
+
+		return nil
+	}
+
+	key := render.Key(strings.ToLower(jsKey.String()))
+	if len(key) > 1 {
+		log.Println("[WorkerApi] key is invalid: ", jsKey.String())
+
+		return nil
+	}
+
+	for _, handler := range worker.keyDownHandlers {
+		handler(key)
+	}
+
+	log.Println("[WorkerApi] Notified every keyDown handler")
+
+	return nil
 }
