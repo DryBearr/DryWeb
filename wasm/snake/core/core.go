@@ -19,7 +19,7 @@ const (
 	wall      byte = 4
 	snakeHead byte = 3
 	snakeTail byte = 2
-	snack     byte = 1
+	apple     byte = 1
 
 	boardSize = 17 //original 15 but up down and left right + 2
 	latency   = 16 //60 frame per second
@@ -32,6 +32,7 @@ var (
 	board        [][]byte
 	pointsEarned int
 
+	//TODO:
 	pauseMu   sync.Mutex
 	pause     bool
 	pauseCond sync.Cond
@@ -46,9 +47,11 @@ var (
 	delayedTail     *render.Coordinate
 	snakeParts      []render.Coordinate
 
-	snackMutex   sync.Mutex
-	droppedSnack *render.Coordinate
-	snackCount   int
+	appleMutex   sync.Mutex
+	droppedApple *render.Coordinate
+
+	pointMutex sync.Mutex
+	points     int
 
 	endGameChan chan any
 
@@ -62,7 +65,8 @@ var (
 	currentDurationMutex sync.Mutex
 	ticker               = time.NewTicker(time.Millisecond * time.Duration(currentDuration))
 
-	size render.Size
+	size      render.Size
+	sizeMutex sync.Mutex
 
 	backgroundColor = render.Pixel{
 		R: 0,
@@ -70,35 +74,31 @@ var (
 		B: 0,
 		A: 255,
 	}
-
 	snakeColor = render.Pixel{
 		R: 255,
 		G: 255,
 		B: 255,
 		A: 255,
 	}
-
 	snackColor = render.Pixel{
 		R: 0,
 		G: 0,
 		B: 255,
 		A: 255,
 	}
-
 	wallColor = render.Pixel{
 		R: 255,
 		G: 0,
 		B: 0,
 		A: 50,
 	}
-
 	frameChan chan *[][]render.Pixel
 )
 
 func StartGame(renderer render.Renderer) {
 	initBoard()
 	initSnake()
-	droppedSnack = &render.Coordinate{X: rand.Intn(boardSize-2) + 1, Y: rand.Intn(boardSize-2) + 1}
+	droppedApple = &render.Coordinate{X: rand.Intn(boardSize-2) + 1, Y: rand.Intn(boardSize-2) + 1}
 
 	api = renderer
 	size = api.GetSize()
@@ -115,63 +115,140 @@ func StartGame(renderer render.Renderer) {
 	select {}
 }
 
+//Getters & Setters with mutex
+
+func getBoard() [][]byte {
+	boardMutex.Lock()
+	defer boardMutex.Unlock()
+
+	return board
+}
+
+func setBoard(newBoard [][]byte) {
+	boardMutex.Lock()
+	defer boardMutex.Unlock()
+
+	board = newBoard
+}
+
+func setSize(newSize render.Size) {
+	sizeMutex.Lock()
+	defer sizeMutex.Unlock()
+
+	size = newSize
+}
+
+func getSize() render.Size {
+	sizeMutex.Lock()
+	defer sizeMutex.Unlock()
+
+	return size
+}
+
+func setSnakeDirection(newDirection Move) {
+	snakeDirectionMutex.Lock()
+	defer snakeDirectionMutex.Unlock()
+
+	snakeDirection = newDirection
+}
+
+func getSnakeDirection() Move {
+	snakeDirectionMutex.Lock()
+	defer snakeDirectionMutex.Unlock()
+
+	return snakeDirection
+}
+
+func setSnakeParts(newSnakeParts []render.Coordinate) {
+	snakePartsMutex.Lock()
+	defer snakePartsMutex.Unlock()
+
+	snakeParts = newSnakeParts
+}
+
+func getSnakeParts() []render.Coordinate {
+	snakePartsMutex.Lock()
+	defer snakePartsMutex.Unlock()
+
+	return snakeParts
+}
+
+func getApple() *render.Coordinate {
+	appleMutex.Lock()
+	defer appleMutex.Unlock()
+
+	return droppedApple
+}
+
+func setApple(newApple *render.Coordinate) {
+	appleMutex.Lock()
+	defer appleMutex.Unlock()
+
+	droppedApple = newApple
+}
+
+//Init funcs for game
+
 func initBoard() {
-	board = make([][]byte, boardSize)
-	for row := range board {
-		board[row] = make([]byte, boardSize)
-		for column := range board[row] {
-			board[row][column] = 0
+	newBoard := make([][]byte, boardSize)
+	for row := range newBoard {
+		newBoard[row] = make([]byte, boardSize)
+
+		for column := range newBoard[row] {
+			newBoard[row][column] = 0
+
 			if row == boardSize-1 || row == 0 || column == boardSize-1 || column == 0 { //walls
-				board[row][column] = 4
+				newBoard[row][column] = 4
 			}
 		}
 	}
+
+	newBoard[1][1] = snakeHead
+
+	setBoard(newBoard)
 }
 
 func initSnake() {
-	boardMutex.Lock()
-	board[1][1] = snakeHead
-	boardMutex.Unlock()
-
-	snakePartsMutex.Lock()
-	snakeParts = []render.Coordinate{
+	setSnakeParts([]render.Coordinate{
 		{
 			X: 1,
 			Y: 1,
 		},
-	}
-	snakePartsMutex.Unlock()
+	})
 }
 
+// Game Logic funcs
+
 func moveSnake(move Move) {
-	boardMutex.Lock()
-	snakePartsMutex.Lock()
+	currentSnakeParts := getSnakeParts()
 
-	prevCoordinate := snakeParts[0] //head
-	snakeParts[0].X += move.X
-	snakeParts[0].Y += move.Y
+	prevCoordinate := currentSnakeParts[0] //head
+	currentSnakeParts[0].X += move.X
+	currentSnakeParts[0].Y += move.Y
 
-	for idx := range snakeParts {
+	for idx := range currentSnakeParts {
 		if idx == 0 {
 			continue
 		}
 
-		temp := snakeParts[idx]
-		snakeParts[idx] = prevCoordinate
+		temp := currentSnakeParts[idx]
+		currentSnakeParts[idx] = prevCoordinate
 		prevCoordinate = temp
 
 	}
-	snakePartsMutex.Unlock()
-	boardMutex.Unlock()
+
+	setSnakeParts(currentSnakeParts)
 }
 
 func checkState() {
-	boardMutex.Lock()
-	snakePartsMutex.Lock()
+	currentBoard := getBoard()
+	currentSnakeParts := getSnakeParts()
 
 	if delayedTail != nil {
-		snakeParts = append(snakeParts, *delayedTail)
+		currentSnakeParts = append(currentSnakeParts, *delayedTail)
 		delayedTail = nil
+
+		setSnakeParts(currentSnakeParts)
 	}
 
 	switch board[snakeParts[0].Y][snakeParts[0].X] {
@@ -179,45 +256,73 @@ func checkState() {
 		go func() {
 			endGameChan <- struct{}{}
 		}()
-
-		snakePartsMutex.Unlock()
-		boardMutex.Unlock()
 		return
-	case snack:
+	case apple:
 		decreaseDuration()
 
-		newTail := snakeParts[len(snakeParts)-1]
+		newTail := currentSnakeParts[len(snakeParts)-1]
 		delayedTail = &newTail
 
-		snackMutex.Lock()
-		droppedSnack = &render.Coordinate{X: rand.Intn(boardSize-2) + 1, Y: rand.Intn(boardSize-2) + 1}
-		snackCount += 1
-		snackMutex.Unlock()
+		setApple(&render.Coordinate{X: rand.Intn(boardSize-2) + 1, Y: rand.Intn(boardSize-2) + 1})
+
+		increasePoints()
 	}
 
-	for row := range board {
-		for column := range board[row] {
-			board[row][column] = 0
+	for row := range currentBoard {
+		for column := range currentBoard[row] {
+			currentBoard[row][column] = 0
 			if row == boardSize-1 || row == 0 || column == boardSize-1 || column == 0 { //walls
-				board[row][column] = 4
+				currentBoard[row][column] = 4
 			}
 		}
 	}
 
-	snackMutex.Lock()
-	if droppedSnack != nil {
-		board[droppedSnack.Y][droppedSnack.X] = snack
-	}
-	snackMutex.Unlock()
-
-	board[snakeParts[0].Y][snakeParts[0].X] = snakeHead
-
-	for _, snakePart := range snakeParts[1:] {
-		board[snakePart.Y][snakePart.X] = snakeTail
+	currentDroppedApple := getApple()
+	if getApple() != nil {
+		currentBoard[currentDroppedApple.Y][currentDroppedApple.X] = apple
 	}
 
-	snakePartsMutex.Unlock()
-	boardMutex.Unlock()
+	currentBoard[currentSnakeParts[0].Y][currentSnakeParts[0].X] = snakeHead
+
+	for _, snakePart := range currentSnakeParts[1:] {
+		currentBoard[snakePart.Y][snakePart.X] = snakeTail
+	}
+
+	setBoard(currentBoard)
+}
+
+func increasePoints() {
+	pointMutex.Lock()
+	defer pointMutex.Unlock()
+
+	points += 1
+}
+
+func resetPoints() {
+	pointMutex.Lock()
+	defer pointMutex.Unlock()
+
+	points = 0
+}
+
+func decreaseDuration() {
+	currentDurationMutex.Lock()
+	defer currentDurationMutex.Unlock()
+
+	if currentDuration > minimumDuration {
+		currentDuration -= minimumDuration
+		ticker.Stop()
+		ticker = time.NewTicker(time.Duration(currentDuration) * time.Millisecond)
+	}
+}
+
+func resetDuration() {
+	currentDurationMutex.Lock()
+	defer currentDurationMutex.Unlock()
+
+	currentDuration = maxDuration
+	ticker.Stop()
+	ticker = time.NewTicker(time.Duration(currentDuration) * time.Millisecond)
 }
 
 func startGameLoop() {
@@ -226,92 +331,86 @@ func startGameLoop() {
 		for {
 			select {
 			case <-ticker.C:
-				moveSnake(snakeDirection)
+				moveSnake(getSnakeDirection())
+
 				checkState()
+
 				go func() {
-					frameChan <- BoardToFrame()
+					frameChan <- boardToFrame()
 				}()
 			case <-endGameChan:
-				currentDurationMutex.Lock()
-				currentDuration = maxDuration
-				ticker.Stop()
-				ticker = time.NewTicker(time.Duration(currentDuration) * time.Millisecond)
-				currentDurationMutex.Unlock()
+				resetDuration()
+
+				resetPoints()
 
 				initBoard()
+
 				initSnake()
-				snakeDirectionMutex.Lock()
-				snakeDirection = moveDown
-				snakeDirectionMutex.Unlock()
+
+				setSnakeDirection(moveDown)
+
 				continue GameLoop
 			}
 		}
 	}()
 }
 
-func changeSnakeDirection(move Move) {
-	snakeDirectionMutex.Lock()
-	defer snakeDirectionMutex.Unlock()
-
-	snakeDirection = move
-}
+// Event handlers
 
 func onKeyDown(key render.Key) error {
+	currentSnakeDirection := getSnakeDirection()
+
 	switch key {
 	case render.WKey:
-		if snakeDirection != moveDown {
-			changeSnakeDirection(moveUp)
+		if currentSnakeDirection != moveDown {
+			setSnakeDirection(moveUp)
 		}
 	case render.AKey:
-		if snakeDirection != moveRight {
-			changeSnakeDirection(moveLeft)
+		if currentSnakeDirection != moveRight {
+			setSnakeDirection(moveLeft)
 		}
 	case render.DKey:
-		if snakeDirection != moveLeft {
-			changeSnakeDirection(moveRight)
+		if currentSnakeDirection != moveLeft {
+			setSnakeDirection(moveRight)
 		}
 	case render.SKey:
-		if snakeDirection != moveUp {
-			changeSnakeDirection(moveDown)
+		if currentSnakeDirection != moveUp {
+			setSnakeDirection(moveDown)
 		}
 	}
 
 	return nil
-}
-
-func decreaseDuration() {
-	currentDurationMutex.Lock()
-	if currentDuration > minimumDuration {
-		currentDuration -= minimumDuration
-		ticker.Stop()
-		ticker = time.NewTicker(time.Duration(currentDuration) * time.Millisecond)
-	}
-	currentDurationMutex.Unlock()
 }
 
 func onResize(newSize render.Size) error {
+	setSize(newSize)
+
 	return nil
 }
 
-func BoardToFrame() *[][]render.Pixel {
-	boardMutex.Lock()
-	defer boardMutex.Unlock()
+//Game rendering funcs
 
-	newFrame2D := make([][]render.Pixel, size.Height)
+func boardToFrame() *[][]render.Pixel {
+	currentBoard := getBoard()
+
+	currentSize := getSize()
+
+	newFrame2D := make([][]render.Pixel, currentSize.Height)
 	for idx := range newFrame2D {
-		newFrame2D[idx] = make([]render.Pixel, size.Width)
+		newFrame2D[idx] = make([]render.Pixel, currentSize.Width)
 	}
 
 	for frameYIndex := range newFrame2D {
 		for frameXIndex := range newFrame2D[frameYIndex] {
-			boardYIndex := frameYIndex * boardSize / size.Height
-			boardXIndex := frameXIndex * boardSize / size.Width
-			switch board[boardYIndex][boardXIndex] {
+			boardYIndex := frameYIndex * boardSize / currentSize.Height
+			boardXIndex := frameXIndex * boardSize / currentSize.Width
+
+			switch currentBoard[boardYIndex][boardXIndex] {
 			case snakeTail, snakeHead:
 				newFrame2D[frameYIndex][frameXIndex] = snakeColor
 			case wall:
 				newFrame2D[frameYIndex][frameXIndex] = wallColor
-			case snack:
+			case apple:
 				newFrame2D[frameYIndex][frameXIndex] = snackColor
 			default:
 				newFrame2D[frameYIndex][frameXIndex] = backgroundColor
