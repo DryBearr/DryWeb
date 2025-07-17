@@ -45,6 +45,7 @@ func init() {
 	js.Global().Call("addEventListener", "message", js.FuncOf(Api.mouseDragEventListener))
 	js.Global().Call("addEventListener", "message", js.FuncOf(Api.mouseDragEndEventListener))
 	js.Global().Call("addEventListener", "message", js.FuncOf(Api.keyDownEventListener))
+	js.Global().Call("addEventListener", "message", js.FuncOf(Api.swipeEventListener))
 }
 
 type WorkerApi struct {
@@ -53,6 +54,7 @@ type WorkerApi struct {
 	mouseDragHandlers    []render.MouseDragHandler
 	mouseDragEndHandlers []render.MouseDragEndHandler
 	keyDownHandlers      []render.KeyDownHandler
+	swipeHandlers        []render.SwipeHandler
 
 	size render.Size
 
@@ -146,6 +148,11 @@ func (worker *WorkerApi) RegisterMouseDragEndEventListener(handler render.MouseD
 
 func (worker *WorkerApi) RegisterKeyDownEventListener(handler render.KeyDownHandler) error {
 	worker.keyDownHandlers = append(worker.keyDownHandlers, handler)
+	return nil
+}
+
+func (worker *WorkerApi) RegisterSwipeEventListener(handler render.SwipeHandler) error {
+	worker.swipeHandlers = append(worker.swipeHandlers, handler)
 	return nil
 }
 
@@ -364,6 +371,47 @@ func (worker *WorkerApi) keyDownEventListener(this js.Value, args []js.Value) an
 	}
 
 	log.Println("[WorkerApi] Notified every keyDown handler")
+
+	return nil
+}
+
+func (worker *WorkerApi) swipeEventListener(this js.Value, args []js.Value) any {
+	log.Println("[WorkerApi] Recieved swipe event")
+
+	jsObj := worker.getMessageData(args, "swipe")
+	if jsObj == nil {
+		return nil
+	}
+
+	jsSwipeDirection := jsObj.Get("direction")
+	if jsSwipeDirection.Type() != js.TypeString {
+		log.Println("[WorkerApi] direction is missing or not a string")
+
+		return nil
+	}
+
+	swipeDirection := render.Key(strings.ToLower(jsSwipeDirection.String()))
+	var direction render.SwipeDirection
+	switch swipeDirection {
+	case "right":
+		direction = render.SwipeRight
+	case "left":
+		direction = render.SwipeLeft
+	case "down":
+		direction = render.SwipeDown
+	case "up":
+		direction = render.SwipeUp
+	default:
+		log.Println("[WorkerApi] direction is invalid: ", swipeDirection)
+
+		return nil
+	}
+
+	for _, handler := range worker.swipeHandlers {
+		handler(direction)
+	}
+
+	log.Println("[WorkerApi] Notified every swipe handler")
 
 	return nil
 }

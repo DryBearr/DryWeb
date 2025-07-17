@@ -23,6 +23,30 @@ type Coordinate struct {
 	Y int
 }
 
+type SwipeDirection Coordinate
+
+var (
+	SwipeLeft = SwipeDirection{
+		X: -1,
+		Y: 0,
+	}
+
+	SwipeRight = SwipeDirection{
+		X: 1,
+		Y: 0,
+	}
+
+	SwipeUp = SwipeDirection{
+		X: 0,
+		Y: -1,
+	}
+
+	SwipeDown = SwipeDirection{
+		X: 0,
+		Y: 1,
+	}
+)
+
 // TODO: godoc
 type Size struct {
 	Width  int
@@ -54,6 +78,9 @@ type KeyDownHandler func(key Key) error
 
 //TODO: type KeyUpHandler func(key Key) error
 
+// Swipe events
+type SwipeHandler func(direction SwipeDirection) error
+
 // TODO: godoc
 type Renderer interface {
 	DrawFrame(frame *[][]Pixel, s Size) error
@@ -71,4 +98,7 @@ type Renderer interface {
 
 	//Key Events
 	RegisterKeyDownEventListener(handler KeyDownHandler) error
+
+	//Swipe Events
+	RegisterSwipeEventListener(handler SwipeHandler) error
 }

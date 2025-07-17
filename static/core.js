@@ -250,6 +250,41 @@ document.addEventListener("keydown", (event) => {
   });
 });
 
+//Swipe Event
+
+let touchStartX = 0;
+let touchStartY = 0;
+let touchEndX = 0;
+let touchEndY = 0;
+
+const swipeZone = document.getElementById("renderer");
+
+swipeZone.addEventListener("touchstart", function (e) {
+  touchStartX = e.changedTouches[0].screenX;
+  touchStartY = e.changedTouches[0].screenY;
+});
+
+swipeZone.addEventListener("touchend", function (e) {
+  touchEndX = e.changedTouches[0].screenX;
+  touchEndY = e.changedTouches[0].screenY;
+
+  const swipeX = Math.abs(touchEndX - touchStartX);
+  const swipeY = Math.abs(touchEndY - touchStartY);
+
+  let swipeDirection = "";
+
+  if (swipeX > swipeY) {
+    swipeDirection = touchEndX - touchStartX > 0 ? "right" : "left";
+  } else {
+    swipeDirection = touchEndY - touchStartY > 0 ? "down" : "up";
+  }
+
+  workerApi.postMessage({
+    type: "swipe",
+    direction: swipeDirection,
+  });
+});
+
 //Utility functions
 function isMobileViewport() {
   return window.matchMedia("(max-width: 767px)").matches;

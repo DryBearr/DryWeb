@@ -108,6 +108,7 @@ func StartGame(renderer render.Renderer) {
 
 	api.RegisterKeyDownEventListener(onKeyDown)
 	api.RegisterResizeEventListener(onResize)
+	api.RegisterSwipeEventListener(onSwipe)
 
 	startRenderLoop()
 	startGameLoop()
@@ -356,6 +357,30 @@ func startGameLoop() {
 }
 
 // Event handlers
+func onSwipe(direction render.SwipeDirection) error {
+	currentSnakeDirection := getSnakeDirection()
+
+	switch direction {
+	case render.SwipeUp:
+		if currentSnakeDirection != moveDown {
+			setSnakeDirection(moveUp)
+		}
+	case render.SwipeLeft:
+		if currentSnakeDirection != moveRight {
+			setSnakeDirection(moveLeft)
+		}
+	case render.SwipeRight:
+		if currentSnakeDirection != moveLeft {
+			setSnakeDirection(moveRight)
+		}
+	case render.SwipeDown:
+		if currentSnakeDirection != moveUp {
+			setSnakeDirection(moveDown)
+		}
+	}
+
+	return nil
+}
 
 func onKeyDown(key render.Key) error {
 	currentSnakeDirection := getSnakeDirection()
