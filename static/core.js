@@ -106,74 +106,10 @@ workerApi.addEventListener("message", function (event) {
   }
 });
 
-//Resize options
+//Controls
 
 const controlsDiv = document.createElement("div");
 controlsDiv.setAttribute("class", "controls");
-let widthResizeOption = { max: window.innerWidth, min: 0 };
-let heightResizeOption = { max: window.innerHeight, min: 0 };
-
-if (!isMobileViewport()) {
-  const widthInput = document.createElement("input");
-  widthInput.type = "number";
-  widthInput.placeholder = "Width";
-  widthInput.value = config.window_size.default.width;
-
-  const heightInput = document.createElement("input");
-  heightInput.type = "number";
-  heightInput.placeholder = "Height";
-  heightInput.value = config.window_size.default.height;
-
-  const applyButton = document.createElement("button");
-  applyButton.textContent = "Apply Size";
-  applyButton.addEventListener("click", () => {
-    const tempWidth = parseInt(widthInput.value, 10);
-    const tempHeight = parseInt(heightInput.value, 10);
-
-    if (
-      !isNaN(tempWidth) &&
-      !isNaN(tempHeight) &&
-      tempWidth > widthResizeOption.min &&
-      tempWidth < widthResizeOption.max &&
-      tempHeight > heightResizeOption.min &&
-      tempHeight < heightResizeOption.max
-    ) {
-      width = tempWidth;
-      height = tempHeight;
-
-      workerApi.postMessage({
-        type: "resize",
-        width: width,
-        height: height,
-      });
-    } else {
-      ({ width, height } = config.window_size.default);
-      workerApi.postMessage({
-        type: "resize",
-        width: width,
-        height: height,
-      });
-
-      heightInput.value = height;
-      widthInput.value = width;
-    }
-  });
-
-  const defaultSizeButton = document.createElement("button");
-  defaultSizeButton.textContent = "Default size";
-  defaultSizeButton.addEventListener("click", () => {
-    ({ width, height } = config.window_size.default);
-    workerApi.postMessage({
-      type: "resize",
-      width: width,
-      height: height,
-    });
-    heightInput.value = height;
-    widthInput.value = width;
-  });
-
-  controlsDiv.append(widthInput, heightInput, applyButton, defaultSizeButton);
-}
 
 anchor.append(controlsDiv);
 
@@ -213,6 +149,7 @@ reloadWasmButton.addEventListener("click", () => {
 reloadWasmButton.setAttribute("class", "reload-button");
 
 controlsDiv.append(reloadWasmButton);
+
 //On Canvas Drag event logic
 const getCanvasCoordinates = (event) => {
   const rect = canvas.getBoundingClientRect();
