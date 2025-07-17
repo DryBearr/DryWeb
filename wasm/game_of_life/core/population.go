@@ -8,7 +8,7 @@ package core
 
 import (
 	"time"
-	"wasm/render"
+	"wasm/dryengine"
 )
 
 func RunPopulationLoop(populateInterval time.Duration) {
@@ -39,9 +39,9 @@ func PopulateFrame() {
 	AliveCellsMutex.Lock()
 	defer AliveCellsMutex.Unlock()
 
-	possibleAliveCells := make(map[render.Coordinate]int)
+	possibleAliveCells := make(map[dryengine.Coordinate2D]int)
 
-	newAliveCells := make(map[render.Coordinate]any)
+	newAliveCells := make(map[dryengine.Coordinate2D]any)
 
 	for aliveCell := range AliveCells {
 		nCoordinates := getNeighbourCoordinates(aliveCell, BoundaryCordinate.X, BoundaryCordinate.Y)
@@ -72,7 +72,7 @@ func PopulateFrame() {
 	AliveCells = newAliveCells
 
 	//TODO: frame and grid of living cells are not the same size so create translator for that
-	tempCoordinate := render.Coordinate{}
+	tempCoordinate := dryengine.Coordinate2D{}
 	for y := range Frame2D {
 		for x := range Frame2D[y] {
 			tempCoordinate.Y = y
@@ -87,15 +87,15 @@ func PopulateFrame() {
 	}
 
 	//TODO: this is poop code
-	AddFrame(RenderFrame{
-		Frame: &Frame2D,
-		Size:  Size,
+	Engine.AddFrame(&dryengine.RenderFrame{
+		Frame:     &Frame2D,
+		FrameSize: Size,
 	})
 
 	FrameMutex.Unlock()
 }
 
-func ResurectCell(c render.Coordinate) {
+func ResurectCell(c dryengine.Coordinate2D) {
 	AliveCellsMutex.Lock()
 	defer AliveCellsMutex.Unlock()
 
@@ -104,7 +104,7 @@ func ResurectCell(c render.Coordinate) {
 	}
 }
 
-func ResurectCellMany(coordinates []render.Coordinate) {
+func ResurectCellMany(coordinates []dryengine.Coordinate2D) {
 	AliveCellsMutex.Lock()
 	defer AliveCellsMutex.Unlock()
 
@@ -115,8 +115,8 @@ func ResurectCellMany(coordinates []render.Coordinate) {
 	}
 }
 
-func getNeighbourCoordinates(c render.Coordinate, width, height int) []render.Coordinate {
-	neighbors := make([]render.Coordinate, 0, 8)
+func getNeighbourCoordinates(c dryengine.Coordinate2D, width, height int) []dryengine.Coordinate2D {
+	neighbors := make([]dryengine.Coordinate2D, 0, 8)
 
 	for dy := -1; dy <= 1; dy++ {
 		for dx := -1; dx <= 1; dx++ {
@@ -128,7 +128,7 @@ func getNeighbourCoordinates(c render.Coordinate, width, height int) []render.Co
 			ny := c.Y + dy
 
 			if nx >= 0 && nx < width && ny >= 0 && ny < height {
-				neighbors = append(neighbors, render.Coordinate{
+				neighbors = append(neighbors, dryengine.Coordinate2D{
 					X: nx,
 					Y: ny,
 				})

@@ -1,6 +1,6 @@
 // ===============================================================
 // File: worker_api.go
-// Description: Provides communicationo between two workers, implements Renderer interface
+// Description: Provides communication between two workers, implements DryEngine interface
 // Author: DryBearr
 // ===============================================================
 
@@ -13,7 +13,8 @@ import (
 	"log"
 	"strings"
 	"syscall/js"
-	"wasm/render"
+	"time"
+	"wasm/dryengine"
 )
 
 var (
@@ -31,39 +32,45 @@ func init() {
 		panic("computeParams is not defined in the worker")
 	}
 
-	size := render.Size{
+	size := dryengine.Size{
 		Height: params.Get("height").Int(),
 		Width:  params.Get("width").Int(),
 	}
 
 	Api = &WorkerApi{
-		size: size,
+		size:      size,
+		frameChan: make(chan *dryengine.RenderFrame, 1000), //TODO:
 	}
 
-	js.Global().Call("addEventListener", "message", js.FuncOf(Api.resizeEventListener))
-	js.Global().Call("addEventListener", "message", js.FuncOf(Api.mouseClickEventListener))
-	js.Global().Call("addEventListener", "message", js.FuncOf(Api.mouseDragEventListener))
-	js.Global().Call("addEventListener", "message", js.FuncOf(Api.mouseDragEndEventListener))
-	js.Global().Call("addEventListener", "message", js.FuncOf(Api.keyDownEventListener))
-	js.Global().Call("addEventListener", "message", js.FuncOf(Api.swipeEventListener))
+	functionsToRealease := []js.Func{
+		js.FuncOf(Api.resizeEventListener),
+		js.FuncOf(Api.mouseClickEventListener),
+		js.FuncOf(Api.mouseDragEventListener),
+		js.FuncOf(Api.mouseDragEndEventListener),
+		js.FuncOf(Api.keyDownEventListener),
+		js.FuncOf(Api.swipeEventListener),
+	}
+
+	for _, f := range functionsToRealease {
+		js.Global().Call("addEventListener", "message", f)
+		//TODO: prevent memory leak f.Release()
+	}
 }
 
 type WorkerApi struct {
-	resizeHandlers       []render.SizeChangeHandler
-	mouseClickHandlers   []render.MouseClickHandler
-	mouseDragHandlers    []render.MouseDragHandler
-	mouseDragEndHandlers []render.MouseDragEndHandler
-	keyDownHandlers      []render.KeyDownHandler
-	swipeHandlers        []render.SwipeHandler
+	resizeHandlers       []dryengine.SizeChangeHandler
+	mouseClickHandlers   []dryengine.MouseClickHandler
+	mouseDragHandlers    []dryengine.MouseDragHandler
+	mouseDragEndHandlers []dryengine.MouseDragEndHandler
+	keyDownHandlers      []dryengine.KeyDownHandler
+	swipeHandlers        []dryengine.SwipeHandler
 
-	size render.Size
+	size dryengine.Size
 
-	//TODO:
-	//pixelBuf      []byte
-	//pixelBufMutex sync.Mutex
+	frameChan chan *dryengine.RenderFrame
 }
 
-func (worker *WorkerApi) DrawFrame(frame2D *[][]render.Pixel, s render.Size) error {
+func (worker *WorkerApi) drawFrame(frame2D *[][]dryengine.Pixel, s dryengine.Size) error {
 
 	//TODO: check sizes
 	pixelBuf := make([]byte, s.Width*s.Height*4)
@@ -92,7 +99,7 @@ func (worker *WorkerApi) DrawFrame(frame2D *[][]render.Pixel, s render.Size) err
 	return nil
 }
 
-func (worker *WorkerApi) DrawFramePartly(frame2D *[][]render.Pixel, s render.Size, c render.Coordinate) error {
+func (worker *WorkerApi) drawFramePartly(frame2D *[][]dryengine.Pixel, s dryengine.Size, c dryengine.Coordinate2D) error {
 	if !worker.size.EqualOrGreater(s) {
 		return fmt.Errorf("invalid size")
 	}
@@ -126,37 +133,37 @@ func (worker *WorkerApi) DrawFramePartly(frame2D *[][]render.Pixel, s render.Siz
 	return nil
 }
 
-func (worker *WorkerApi) RegisterResizeEventListener(handler render.SizeChangeHandler) error {
+func (worker *WorkerApi) RegisterResizeEventListener(handler dryengine.SizeChangeHandler) error {
 	worker.resizeHandlers = append(worker.resizeHandlers, handler)
 	return nil
 }
 
-func (worker *WorkerApi) RegisterMouseClickEventListener(handler render.MouseClickHandler) error {
+func (worker *WorkerApi) RegisterMouseClickEventListener(handler dryengine.MouseClickHandler) error {
 	worker.mouseClickHandlers = append(worker.mouseClickHandlers, handler)
 	return nil
 }
 
-func (worker *WorkerApi) RegisterMouseDragEventListener(handler render.MouseDragHandler) error {
+func (worker *WorkerApi) RegisterMouseDragEventListener(handler dryengine.MouseDragHandler) error {
 	worker.mouseDragHandlers = append(worker.mouseDragHandlers, handler)
 	return nil
 }
 
-func (worker *WorkerApi) RegisterMouseDragEndEventListener(handler render.MouseDragEndHandler) error {
+func (worker *WorkerApi) RegisterMouseDragEndEventListener(handler dryengine.MouseDragEndHandler) error {
 	worker.mouseDragEndHandlers = append(worker.mouseDragEndHandlers, handler)
 	return nil
 }
 
-func (worker *WorkerApi) RegisterKeyDownEventListener(handler render.KeyDownHandler) error {
+func (worker *WorkerApi) RegisterKeyDownEventListener(handler dryengine.KeyDownHandler) error {
 	worker.keyDownHandlers = append(worker.keyDownHandlers, handler)
 	return nil
 }
 
-func (worker *WorkerApi) RegisterSwipeEventListener(handler render.SwipeHandler) error {
+func (worker *WorkerApi) RegisterSwipeEventListener(handler dryengine.SwipeHandler) error {
 	worker.swipeHandlers = append(worker.swipeHandlers, handler)
 	return nil
 }
 
-func (worker *WorkerApi) GetSize() render.Size {
+func (worker *WorkerApi) GetSize() dryengine.Size {
 	return worker.size
 }
 
@@ -205,7 +212,7 @@ func (worker *WorkerApi) mouseDragEventListener(this js.Value, args []js.Value) 
 		return nil
 	}
 
-	c := render.Coordinate{
+	c := dryengine.Coordinate2D{
 		X: xVal.Int(),
 		Y: yVal.Int(),
 	}
@@ -241,7 +248,7 @@ func (worker *WorkerApi) mouseClickEventListener(this js.Value, args []js.Value)
 		return nil
 	}
 
-	c := render.Coordinate{
+	c := dryengine.Coordinate2D{
 		X: xVal.Int(),
 		Y: yVal.Int(),
 	}
@@ -292,7 +299,7 @@ func (worker *WorkerApi) resizeEventListener(this js.Value, args []js.Value) any
 		return nil
 	}
 
-	worker.size = render.Size{
+	worker.size = dryengine.Size{
 		Width:  widthVal.Int(),
 		Height: heightVal.Int(),
 	}
@@ -328,7 +335,7 @@ func (worker *WorkerApi) mouseDragEndEventListener(this js.Value, args []js.Valu
 		return nil
 	}
 
-	c := render.Coordinate{
+	c := dryengine.Coordinate2D{
 		X: xVal.Int(),
 		Y: yVal.Int(),
 	}
@@ -359,7 +366,7 @@ func (worker *WorkerApi) keyDownEventListener(this js.Value, args []js.Value) an
 		return nil
 	}
 
-	key := render.Key(strings.ToLower(jsKey.String()))
+	key := dryengine.Key(strings.ToLower(jsKey.String()))
 	if len(key) > 1 {
 		log.Println("[WorkerApi] key is invalid: ", jsKey.String())
 
@@ -390,17 +397,17 @@ func (worker *WorkerApi) swipeEventListener(this js.Value, args []js.Value) any 
 		return nil
 	}
 
-	swipeDirection := render.Key(strings.ToLower(jsSwipeDirection.String()))
-	var direction render.SwipeDirection
+	swipeDirection := dryengine.Key(strings.ToLower(jsSwipeDirection.String()))
+	var direction dryengine.SwipeDirection
 	switch swipeDirection {
 	case "right":
-		direction = render.SwipeRight
+		direction = dryengine.SwipeRight
 	case "left":
-		direction = render.SwipeLeft
+		direction = dryengine.SwipeLeft
 	case "down":
-		direction = render.SwipeDown
+		direction = dryengine.SwipeDown
 	case "up":
-		direction = render.SwipeUp
+		direction = dryengine.SwipeUp
 	default:
 		log.Println("[WorkerApi] direction is invalid: ", swipeDirection)
 
@@ -414,4 +421,38 @@ func (worker *WorkerApi) swipeEventListener(this js.Value, args []js.Value) any 
 	log.Println("[WorkerApi] Notified every swipe handler")
 
 	return nil
+}
+
+func (worker *WorkerApi) StartRenderLoop(latency time.Duration) {
+	go func() {
+		timer := time.NewTimer(latency)
+		defer timer.Stop()
+
+		for {
+			select {
+			case frame, ok := <-worker.frameChan:
+				if !ok {
+					return
+				}
+
+				if frame.C != nil {
+					worker.drawFramePartly(frame.Frame, frame.FrameSize, *frame.C)
+				} else {
+					worker.drawFrame(frame.Frame, frame.FrameSize)
+				}
+
+				if !timer.Stop() {
+					<-timer.C
+				}
+				timer.Reset(latency)
+
+			case <-timer.C:
+				timer.Reset(latency)
+			}
+		}
+	}()
+}
+
+func (worker *WorkerApi) AddFrame(renderFrame *dryengine.RenderFrame) {
+	worker.frameChan <- renderFrame
 }

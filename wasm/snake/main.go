@@ -9,13 +9,10 @@
 package main
 
 import (
-	"wasm/render"
 	"wasm/snake/core"
 	"wasm/webrender"
 )
 
 func main() {
-	api := render.Renderer(webrender.Api)
-
-	core.StartGame(api)
+	core.StartGame(webrender.Api)
 }

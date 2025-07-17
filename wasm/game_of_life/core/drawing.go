@@ -7,12 +7,12 @@
 package core
 
 import (
-	"wasm/render"
+	"wasm/dryengine"
 )
 
 func StartDrawingLoop() {
 	go func() {
-		var prev *render.Coordinate
+		var prev *dryengine.Coordinate2D
 
 		for {
 			select {
@@ -44,11 +44,11 @@ func StartDrawingLoop() {
 	}()
 }
 
-func AddLineCordinateQueue(c render.Coordinate) {
+func AddLineCordinateQueue(c dryengine.Coordinate2D) {
 	DrawLineCoordinateChan <- c
 }
 
-func AddPointCordinateQueue(c render.Coordinate) {
+func AddPointCordinateQueue(c dryengine.Coordinate2D) {
 	DrawPointCoordinateChan <- c
 }
 
@@ -56,7 +56,7 @@ func ResetPrevPoint() {
 	ResetPrevPointChan <- struct{}{}
 }
 
-func DrawLine(pixel render.Pixel, start render.Coordinate, end render.Coordinate) []render.Coordinate {
+func DrawLine(pixel dryengine.Pixel, start dryengine.Coordinate2D, end dryengine.Coordinate2D) []dryengine.Coordinate2D {
 	x0, y0 := start.X, start.Y
 	x1, y1 := end.X, end.Y
 
@@ -66,20 +66,20 @@ func DrawLine(pixel render.Pixel, start render.Coordinate, end render.Coordinate
 	minX := min(x0, x1)
 	minY := min(y0, y1)
 
-	tempSize := render.Size{
+	tempSize := dryengine.Size{
 		Width:  diffX + 1,
 		Height: diffY + 1,
 	}
 
 	reserveSize := max(diffX, diffY)
 
-	ultraInstinctCoordinates := make([]render.Coordinate, 0, reserveSize) //predicted coordinates between start and end points
+	ultraInstinctCoordinates := make([]dryengine.Coordinate2D, 0, reserveSize) //predicted coordinates between start and end points
 
-	tempFrame := make([][]render.Pixel, tempSize.Height)
+	tempFrame := make([][]dryengine.Pixel, tempSize.Height)
 
 	FrameMutex.Lock()
 	for row := range tempFrame {
-		tempFrame[row] = make([]render.Pixel, tempSize.Width)
+		tempFrame[row] = make([]dryengine.Pixel, tempSize.Width)
 
 		for column := range tempFrame[row] {
 			frameY := minY + row
@@ -118,7 +118,7 @@ func DrawLine(pixel render.Pixel, start render.Coordinate, end render.Coordinate
 		// Update main frame if needed
 		if y0 >= 0 && y0 < len(Frame2D) && x0 >= 0 && x0 < len(Frame2D[0]) {
 			Frame2D[y0][x0] = pixel
-			ultraInstinctCoordinates = append(ultraInstinctCoordinates, render.Coordinate{X: x0, Y: y0})
+			ultraInstinctCoordinates = append(ultraInstinctCoordinates, dryengine.Coordinate2D{X: x0, Y: y0})
 		}
 
 		if x0 == x1 && y0 == y1 {
@@ -138,37 +138,37 @@ func DrawLine(pixel render.Pixel, start render.Coordinate, end render.Coordinate
 		}
 	}
 	FrameMutex.Unlock()
-	AddFrame(RenderFrame{Frame: &tempFrame, Size: tempSize, C: &render.Coordinate{X: minX, Y: minY}})
+	Engine.AddFrame(&dryengine.RenderFrame{Frame: &tempFrame, FrameSize: tempSize, C: &dryengine.Coordinate2D{X: minX, Y: minY}})
 
 	return ultraInstinctCoordinates
 }
 
-func DrawPoint(pixel render.Pixel, c render.Coordinate) {
+func DrawPoint(pixel dryengine.Pixel, c dryengine.Coordinate2D) {
 	SetPixel(pixel, c)
 
-	pointFrame := [][]render.Pixel{
+	pointFrame := [][]dryengine.Pixel{
 		{
 			pixel,
 		},
 	}
 
-	AddFrame(RenderFrame{Frame: &pointFrame, Size: PointSize, C: &c})
+	Engine.AddFrame(&dryengine.RenderFrame{Frame: &pointFrame, FrameSize: PointSize, C: &c})
 }
 
 func SetBoard() {
 	FrameMutex.Lock()
 	defer FrameMutex.Unlock()
 
-	Frame2D = make([][]render.Pixel, Size.Height)
+	Frame2D = make([][]dryengine.Pixel, Size.Height)
 	for row := range Frame2D {
-		Frame2D[row] = make([]render.Pixel, Size.Width)
+		Frame2D[row] = make([]dryengine.Pixel, Size.Width)
 		for column := range Frame2D[row] {
 			Frame2D[row][column] = BackgroundPixel
 		}
 	}
 }
 
-func SetPixel(pixel render.Pixel, c render.Coordinate) {
+func SetPixel(pixel dryengine.Pixel, c dryengine.Coordinate2D) {
 	FrameMutex.Lock()
 	defer FrameMutex.Unlock()
 

@@ -9,43 +9,33 @@ package core
 import (
 	"sync"
 	"time"
-	"wasm/render"
+	"wasm/dryengine"
 )
 
-type RenderFrame struct {
-	Frame *[][]render.Pixel
-	C     *render.Coordinate
-	Size  render.Size
-}
-
 var (
-	Api render.Renderer
-
-	//Renderer
-	Latency   time.Duration
-	FrameChan chan RenderFrame
+	Engine dryengine.DryEngine
 
 	//Drawing vars
-	Size render.Size
+	Size dryengine.Size
 
 	FrameMutex sync.Mutex
-	Frame2D    [][]render.Pixel
+	Frame2D    [][]dryengine.Pixel
 
 	ResetPrevPointChan      chan struct{}
-	DrawPointCoordinateChan chan render.Coordinate
-	DrawLineCoordinateChan  chan render.Coordinate
+	DrawPointCoordinateChan chan dryengine.Coordinate2D
+	DrawLineCoordinateChan  chan dryengine.Coordinate2D
 
-	PointSize render.Size
+	PointSize dryengine.Size
 
-	DeadPixel       render.Pixel
-	AlivePixel      render.Pixel
-	BackgroundPixel render.Pixel
+	DeadPixel       dryengine.Pixel
+	AlivePixel      dryengine.Pixel
+	BackgroundPixel dryengine.Pixel
 
 	//Population vars
-	BoundaryCordinate render.Coordinate
+	BoundaryCordinate dryengine.Coordinate2D
 
 	AliveCellsMutex sync.Mutex
-	AliveCells      map[render.Coordinate]any
+	AliveCells      map[dryengine.Coordinate2D]any
 
 	PopulationMutex  sync.Mutex
 	PopulationCond   = sync.NewCond(&PopulationMutex)
@@ -54,36 +44,33 @@ var (
 	//ResetPopulation chan struct{} //TODO: signal to clear the board
 )
 
-func StartGame(renderer render.Renderer) {
-	Api = renderer
+func StartGame(engine dryengine.DryEngine) {
+	Engine = engine
 
-	Latency = 16 * time.Millisecond // 60 fps 1 / 60 ~= 16.6
+	Size = Engine.GetSize()
 
-	Size = Api.GetSize()
-
-	DrawLineCoordinateChan = make(chan render.Coordinate, 100)  //TODO: use passed param
-	DrawPointCoordinateChan = make(chan render.Coordinate, 100) //TODO: use passed param
+	DrawLineCoordinateChan = make(chan dryengine.Coordinate2D, 100)  //TODO: use passed param
+	DrawPointCoordinateChan = make(chan dryengine.Coordinate2D, 100) //TODO: use passed param
 	ResetPrevPointChan = make(chan struct{}, 1)
-	BoundaryCordinate = render.Coordinate{X: 6000, Y: 6000}
-	FrameChan = make(chan RenderFrame, 144) //TODO: use passed param
+	BoundaryCordinate = dryengine.Coordinate2D{X: 6000, Y: 6000}
 
-	PointSize = render.Size{Width: 1, Height: 1}
+	PointSize = dryengine.Size{Width: 1, Height: 1}
 
-	DeadPixel = render.Pixel{
+	DeadPixel = dryengine.Pixel{
 		R: 0,
 		G: 0,
 		B: 0,
 		A: 255,
 	}
 
-	AlivePixel = render.Pixel{
+	AlivePixel = dryengine.Pixel{
 		R: 255,
 		G: 255,
 		B: 255,
 		A: 255,
 	}
 
-	BackgroundPixel = render.Pixel{
+	BackgroundPixel = dryengine.Pixel{
 		R: 0,
 		G: 0,
 		B: 0,
@@ -91,21 +78,23 @@ func StartGame(renderer render.Renderer) {
 	}
 
 	SetBoard()
-	AddFrame(RenderFrame{Frame: &Frame2D, Size: Size})
+	Engine.AddFrame(&dryengine.RenderFrame{Frame: &Frame2D, FrameSize: Size})
 
-	Api.RegisterResizeEventListener(ChangeSize)
-	Api.RegisterMouseDragEventListener(OnDrag)
-	Api.RegisterMouseClickEventListener(OnClick)
-	Api.RegisterMouseDragEndEventListener(OnDragEnd)
+	Engine.RegisterResizeEventListener(ChangeSize)
+	Engine.RegisterMouseDragEventListener(OnDrag)
+	Engine.RegisterMouseClickEventListener(OnClick)
+	Engine.RegisterMouseDragEndEventListener(OnDragEnd)
 
-	StartRenderLoop()
+	Engine.StartRenderLoop(16 * time.Millisecond)
+
 	RunPopulationLoop(100 * time.Millisecond)
+
 	StartDrawingLoop()
 
 	select {} //Run Forever when ever :3
 }
 
-func ChangeSize(s render.Size) error {
+func ChangeSize(s dryengine.Size) error {
 	if Size.Width == s.Width && Size.Height == s.Height {
 		return nil
 	}
@@ -116,18 +105,18 @@ func ChangeSize(s render.Size) error {
 	return nil
 }
 
-func OnClick(c render.Coordinate) error {
+func OnClick(c dryengine.Coordinate2D) error {
 	AddPointCordinateQueue(c)
 	return nil
 }
 
-func OnDrag(c render.Coordinate) error {
+func OnDrag(c dryengine.Coordinate2D) error {
 	PausePopulation()
 	AddLineCordinateQueue(c)
 	return nil
 }
 
-func OnDragEnd(c render.Coordinate) error {
+func OnDragEnd(c dryengine.Coordinate2D) error {
 	ResetPrevPoint()
 	ResumePopulation()
 	return nil
