@@ -1,0 +1,156 @@
+/*
+  ===============================================================
+  File: index.css
+  Description: Every style of drywebfront is defined here 
+  Author: DryBearr
+  ===============================================================
+*/
+
+:root {
+  --background-color: #1e1e2e; /* Canvas/grid background */
+  --primary-color: #89b4fa; /* Buttons, highlights */
+  --accent-color: #f38ba8; /* Warnings, accents */
+  --text-color: #cdd6f4; /* Main text color */
+  --hover-color: #74c7ec; /* Hover state */
+  --active-link-color: #89dceb; /* Active nav link */
+  --panel-background: #2b2b40; /* UI panel background */
+  --border-color: #3f3f5b; /* Subtle border for panels */
+}
+
+/* Reset and base layout */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+body {
+  background-color: var(--background-color);
+  color: var(--text-color);
+  font-family: "Segoe UI", sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 100vh;
+  gap: 24px;
+  padding: 32px 16px;
+}
+/* Header */
+header {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px 0;
+  background: transparent;
+}
+
+/* Header: Navigation */
+#header-wasm-nav {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 30px;
+
+  padding: 12px 24px;
+  background: var(--panel-background);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25);
+}
+
+/* Header: Navigation links */
+#header-wasm-nav a {
+  text-decoration: none;
+  color: var(--text-color);
+  padding: 6px 12px;
+  border-radius: 6px;
+  transition:
+    color 0.2s ease,
+    background-color 0.2s ease;
+}
+
+#header-wasm-nav a:hover {
+  background-color: var(--hover-color);
+  color: #000;
+}
+
+#header-wasm-nav .active-link {
+  background-color: var(--active-link-color);
+  color: #000;
+}
+
+/* ===============================================================
+   Buttons
+   =============================================================== */
+button {
+  background-color: var(--primary-color);
+  color: #000;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 18px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition:
+    background-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.1s ease;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: var(--hover-color);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+button:active {
+  background-color: var(--accent-color);
+  transform: scale(0.97);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+button:disabled {
+  background-color: var(--border-color);
+  color: #666;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ===============================================================
+   Renderer Canvas and Controls Layout
+   =============================================================== */
+
+#renderer-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  gap: 16px;
+}
+
+#renderer {
+  border: 2px solid var(--primary-color);
+  border-radius: 8px;
+  background-color: #11111b;
+  box-shadow: 0 0 12px rgba(137, 180, 250, 0.15);
+  max-width: 100%;
+  height: auto;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  background-color: var(--panel-background);
+  padding: 16px 24px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+}

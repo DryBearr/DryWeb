@@ -1,84 +1,113 @@
 /*
   ===============================================================
-  File: core.js
-  Description: Core script for website inserting links, initilizing workers, establishint communication between them 
+  File: main.ts
+  Description: Entry point of web page scripts
   Author: DryBearr
   ===============================================================
 */
 
-//Config
-import config from "./config.json" with { type: "json" };
+import {
+  createGridBackground,
+  handleBackgroundReSize,
+  setBackgroundCanvas,
+} from "./background";
+import { setHeader, setHeaderNavWasmLinks } from "./header";
+import { getCurrentActiveWasmLink } from "./util";
+import "./index.css";
 
-//Insert links
-const nav = document.getElementById("wasm-links");
+/*
+  ===============================================================
+  wasm modules list and root element setup
+  ===============================================================
+*/
+const wasms: Array<string> = ["game_of_life", "snake"];
+const wasmsToLoad = new Map<string, string>(
+  wasms.map((name) => [name, `./wasm/${name}.wasm`]),
+);
 
-const urlParams = new URLSearchParams(window.location.search);
-const currentHref = urlParams.get("wasm") || config.default_wasm;
+const root: HTMLElement | null = document.getElementById("root");
 
-Object.entries(config.available_wasms).forEach(([key, path]) => {
-  const link = document.createElement("a");
-  const span = document.createElement("span");
-  span.textContent = key;
-  link.href = `?wasm=${key}`;
-  link.appendChild(span);
-  if (key === currentHref) {
-    link.classList.add("active-link");
-  }
-  nav.append(link);
+if (!root) throw new Error("no element with id `app` in the html document");
+
+/*
+  ===============================================================
+  background canvas initialization
+  ===============================================================
+*/
+const docWidth = document.documentElement.scrollWidth;
+const docHeight = document.documentElement.scrollHeight;
+const background = document.createElement("canvas");
+
+setBackgroundCanvas(background);
+createGridBackground(docWidth, docHeight);
+
+root.append(background);
+
+window.addEventListener("resize", () => {
+  const docWidth = document.documentElement.scrollWidth;
+  const docHeight = document.documentElement.scrollHeight;
+
+  handleBackgroundReSize(docWidth, docHeight);
 });
 
-//Try to load wasm base on given param in url
-const queryString = new URLSearchParams(window.location.search);
-let loadWasm = config.default_wasm_path;
+/*
+  ===============================================================
+  header and wasm navigation links
+  ===============================================================
+*/
+const header: HTMLElement = document.createElement("header");
 
-if (queryString.has("wasm")) {
-  const wasmParam = queryString.get("wasm");
+setHeader(header);
+setHeaderNavWasmLinks(wasms);
 
-  if (wasmParam in config.available_wasms) {
-    loadWasm = config.available_wasms[wasmParam];
-  }
-}
+root.append(header);
 
-console.log("[Core] Using wasm:", loadWasm);
+/*
+  ===============================================================
+  rendering canvas initialization 
+  ===============================================================
+*/
 
-//Create Window for renderer
-
-let { width, height } = config.window_size.default;
-if (isMobileViewport()) {
-  ({ width, height } = config.window_size.mobile);
-}
-
-const anchor = document.querySelector("main") || document.querySelector("body");
-if (!anchor) {
-  console.error("[Core] can't find main or body element wtf bro.");
-}
+const canvasWidth = 800;
+const canvasheight = 600;
 
 const windowDiv = document.createElement("div");
 windowDiv.setAttribute("class", "render-window");
-anchor.append(windowDiv);
+root.append(windowDiv);
 
 // Init Canvas and off screen canvas
 const canvas = document.createElement("canvas");
 canvas.setAttribute("id", "renderer");
 
-canvas.setAttribute("width", width);
-canvas.setAttribute("height", height);
+canvas.setAttribute("width", canvasWidth.toString());
+canvas.setAttribute("height", canvasheight.toString());
 windowDiv.append(canvas);
 
-const offScreenCanvas = canvas.transferControlToOffscreen();
+/*
+  ===============================================================
+  worker initialization 
+  ===============================================================
+*/
 
-// Init worker for wasm
-console.log("[Core] Init workers...");
+// Start the worker api
+let workerApi = new Worker("./worker_api.js", { type: "module" });
 
-let workerApi = new Worker("worker_api.js", { type: "module" });
-const workerCanvas = new Worker("worker_canvas.js", { type: "module" });
+const activeWasm = getCurrentActiveWasmLink();
+
+const loadWasm =
+  wasmsToLoad.get(activeWasm ?? "") ?? "./wasm/game_of_life.wasm";
 
 workerApi.postMessage({
   type: "init",
   wasm: loadWasm,
-  width: width,
-  height: height,
+  width: canvasWidth,
+  height: canvasheight,
 });
+
+// Initialize canvas rendering worker
+const workerCanvas = new Worker("./worker_canvas.js");
+
+const offScreenCanvas = canvas.transferControlToOffscreen();
 
 workerCanvas.postMessage(
   {
@@ -87,6 +116,12 @@ workerCanvas.postMessage(
   },
   [offScreenCanvas],
 );
+
+/*
+  ===============================================================
+  events
+  ===============================================================
+*/
 
 workerApi.addEventListener("message", function (event) {
   const data = event.data;
@@ -111,7 +146,7 @@ workerApi.addEventListener("message", function (event) {
 const controlsDiv = document.createElement("div");
 controlsDiv.setAttribute("class", "controls");
 
-anchor.append(controlsDiv);
+root.append(controlsDiv);
 
 //Reload Wasm
 const reloadWasmButton = document.createElement("button");
@@ -124,8 +159,8 @@ reloadWasmButton.addEventListener("click", () => {
   workerApi.postMessage({
     type: "init",
     wasm: loadWasm,
-    width: width,
-    height: height,
+    width: canvasWidth,
+    height: canvasheight,
   });
 
   workerApi.addEventListener("message", function (event) {
@@ -151,25 +186,30 @@ reloadWasmButton.setAttribute("class", "reload-button");
 controlsDiv.append(reloadWasmButton);
 
 //On Canvas Drag event logic
-const getCanvasCoordinates = (event) => {
+const getCanvasCoordinates = (event: MouseEvent | TouchEvent) => {
   const rect = canvas.getBoundingClientRect();
-  if (event.touches && event.touches.length > 0) {
+  if ("touches" in event && event.touches.length > 0) {
     return {
       x: Math.floor(event.touches[0].clientX - rect.left),
       y: Math.floor(event.touches[0].clientY - rect.top),
     };
   } else {
     return {
-      x: Math.floor(event.clientX - rect.left),
-      y: Math.floor(event.clientY - rect.top),
+      x: Math.floor((event as MouseEvent).clientX - rect.left),
+      y: Math.floor((event as MouseEvent).clientY - rect.top),
     };
   }
 };
 
-let isDraging = false;
-let prevPoint = null;
+interface Point {
+  x: number;
+  y: number;
+}
 
-const handleDragStart = (event) => {
+let isDraging = false;
+let prevPoint: Point | null = null;
+
+const handleDragStart = (event: MouseEvent | TouchEvent) => {
   event.preventDefault();
 
   isDraging = true;
@@ -179,13 +219,13 @@ const handleDragStart = (event) => {
   prevPoint = { x, y };
 };
 
-const handleDragMove = (event) => {
+const handleDragMove = (event: MouseEvent | TouchEvent) => {
   event.preventDefault();
   if (!isDraging) return;
 
   const { x, y } = getCanvasCoordinates(event);
 
-  if (prevPoint != null) {
+  if (prevPoint !== null) {
     workerApi.postMessage({
       type: "mouseDrag",
       x: prevPoint.x,
@@ -198,7 +238,7 @@ const handleDragMove = (event) => {
   workerApi.postMessage({ type: "mouseDrag", x, y });
 };
 
-const handleDragEnd = (event) => {
+const handleDragEnd = (event: MouseEvent | TouchEvent) => {
   event.preventDefault();
 
   const { x, y } = getCanvasCoordinates(event);
@@ -206,6 +246,7 @@ const handleDragEnd = (event) => {
   if (prevPoint) {
     const dx = Math.abs(x - prevPoint.x);
     const dy = Math.abs(y - prevPoint.y);
+
     if (dx < 3 && dy < 3) {
       workerApi.postMessage({
         type: "mouseClick",
@@ -259,6 +300,8 @@ let touchEndY = 0;
 
 const swipeZone = document.getElementById("renderer");
 
+if (!swipeZone) throw new Error("can't find canvas for swipe zone");
+
 swipeZone.addEventListener("touchstart", function (e) {
   touchStartX = e.changedTouches[0].screenX;
   touchStartY = e.changedTouches[0].screenY;
@@ -284,8 +327,3 @@ swipeZone.addEventListener("touchend", function (e) {
     direction: swipeDirection,
   });
 });
-
-//Utility functions
-function isMobileViewport() {
-  return window.matchMedia("(max-width: 767px)").matches;
-}
