@@ -34,8 +34,12 @@ if (!root) throw new Error("no element with id `app` in the html document");
   background canvas initialization
   ===============================================================
 */
+
+// FIX: height of background is incorrect when using inspect tools
+
 const docWidth = document.documentElement.scrollWidth;
 const docHeight = document.documentElement.scrollHeight;
+
 const background = document.createElement("canvas");
 
 setBackgroundCanvas(background);
