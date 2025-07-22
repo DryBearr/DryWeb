@@ -24,27 +24,7 @@ self.addEventListener("message", (event) => {
       break;
     }
 
-    case "frame": {
-      const { pixels, width, height } = event.data;
-      const imageData = new ImageData(
-        new Uint8ClampedArray(pixels),
-        width,
-        height,
-      );
-
-      if (
-        self.params.offScreenCanvas.width !== width ||
-        self.params.offScreenCanvas.height !== height
-      ) {
-        self.params.offScreenCanvas.width = width;
-        self.params.offScreenCanvas.height = height;
-      }
-
-      self.params.ctx.putImageData(imageData, 0, 0);
-      break;
-    }
-
-    case "framePart": {
+    case "renderFrame": {
       const { pixels, width, height, x, y } = event.data;
       const imageData = new ImageData(
         new Uint8ClampedArray(pixels),

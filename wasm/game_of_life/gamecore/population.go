@@ -4,11 +4,11 @@
 // Author: DryBearr
 // ===============================================================
 
-package core
+package gamecore
 
 import (
 	"time"
-	"wasm/dryengine"
+	"wasm/dryeve/models"
 )
 
 func RunPopulationLoop(populateInterval time.Duration) {
@@ -39,9 +39,9 @@ func PopulateFrame() {
 	AliveCellsMutex.Lock()
 	defer AliveCellsMutex.Unlock()
 
-	possibleAliveCells := make(map[dryengine.Coordinate2D]int)
+	possibleAliveCells := make(map[models.Point2D]int)
 
-	newAliveCells := make(map[dryengine.Coordinate2D]any)
+	newAliveCells := make(map[models.Point2D]any)
 
 	for aliveCell := range AliveCells {
 		nCoordinates := getNeighbourCoordinates(aliveCell, BoundaryCordinate.X, BoundaryCordinate.Y)
@@ -72,11 +72,11 @@ func PopulateFrame() {
 	AliveCells = newAliveCells
 
 	//TODO: frame and grid of living cells are not the same size so create translator for that
-	tempCoordinate := dryengine.Coordinate2D{}
+	tempCoordinate := models.Point2D{}
 	for y := range Frame2D {
 		for x := range Frame2D[y] {
-			tempCoordinate.Y = y
-			tempCoordinate.X = x
+			tempCoordinate.Y = float32(y)
+			tempCoordinate.X = float32(x)
 
 			if _, ok := AliveCells[tempCoordinate]; ok {
 				Frame2D[y][x] = AlivePixel
@@ -87,24 +87,24 @@ func PopulateFrame() {
 	}
 
 	//TODO: this is poop code
-	Engine.AddFrame(&dryengine.RenderFrame{
-		Frame:     &Frame2D,
-		FrameSize: Size,
+	Engine.AddFrame(models.RenderFrame{
+		Frame: &Frame2D,
 	})
 
 	FrameMutex.Unlock()
 }
 
-func ResurectCell(c dryengine.Coordinate2D) {
+func ResurectCell(c models.Point2D) {
 	AliveCellsMutex.Lock()
 	defer AliveCellsMutex.Unlock()
 
 	if c.X < BoundaryCordinate.X && c.Y < BoundaryCordinate.Y {
 		AliveCells[c] = struct{}{}
 	}
+
 }
 
-func ResurectCellMany(coordinates []dryengine.Coordinate2D) {
+func ResurectCellMany(coordinates []models.Point2D) {
 	AliveCellsMutex.Lock()
 	defer AliveCellsMutex.Unlock()
 
@@ -115,8 +115,8 @@ func ResurectCellMany(coordinates []dryengine.Coordinate2D) {
 	}
 }
 
-func getNeighbourCoordinates(c dryengine.Coordinate2D, width, height int) []dryengine.Coordinate2D {
-	neighbors := make([]dryengine.Coordinate2D, 0, 8)
+func getNeighbourCoordinates(c models.Point2D, width, height float32) []models.Point2D {
+	neighbors := make([]models.Point2D, 0, 8)
 
 	for dy := -1; dy <= 1; dy++ {
 		for dx := -1; dx <= 1; dx++ {
@@ -124,11 +124,11 @@ func getNeighbourCoordinates(c dryengine.Coordinate2D, width, height int) []drye
 				continue
 			}
 
-			nx := c.X + dx
-			ny := c.Y + dy
+			nx := c.X + float32(dx)
+			ny := c.Y + float32(dy)
 
 			if nx >= 0 && nx < width && ny >= 0 && ny < height {
-				neighbors = append(neighbors, dryengine.Coordinate2D{
+				neighbors = append(neighbors, models.Point2D{
 					X: nx,
 					Y: ny,
 				})

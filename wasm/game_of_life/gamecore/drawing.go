@@ -4,15 +4,15 @@
 // Author: DryBearr
 // ===============================================================
 
-package core
+package gamecore
 
 import (
-	"wasm/dryengine"
+	"wasm/dryeve/models"
 )
 
 func StartDrawingLoop() {
 	go func() {
-		var prev *dryengine.Coordinate2D
+		var prev *models.Point2D
 
 		for {
 			select {
@@ -44,11 +44,11 @@ func StartDrawingLoop() {
 	}()
 }
 
-func AddLineCordinateQueue(c dryengine.Coordinate2D) {
+func AddLineCordinateQueue(c models.Point2D) {
 	DrawLineCoordinateChan <- c
 }
 
-func AddPointCordinateQueue(c dryengine.Coordinate2D) {
+func AddPointCordinateQueue(c models.Point2D) {
 	DrawPointCoordinateChan <- c
 }
 
@@ -56,9 +56,9 @@ func ResetPrevPoint() {
 	ResetPrevPointChan <- struct{}{}
 }
 
-func DrawLine(pixel dryengine.Pixel, start dryengine.Coordinate2D, end dryengine.Coordinate2D) []dryengine.Coordinate2D {
-	x0, y0 := start.X, start.Y
-	x1, y1 := end.X, end.Y
+func DrawLine(pixel models.Pixel, start models.Point2D, end models.Point2D) []models.Point2D {
+	x0, y0 := int(start.X), int(start.Y)
+	x1, y1 := int(end.X), int(end.Y)
 
 	diffX := Abs(x0 - x1)
 	diffY := Abs(y0 - y1)
@@ -66,20 +66,18 @@ func DrawLine(pixel dryengine.Pixel, start dryengine.Coordinate2D, end dryengine
 	minX := min(x0, x1)
 	minY := min(y0, y1)
 
-	tempSize := dryengine.Size{
-		Width:  diffX + 1,
-		Height: diffY + 1,
-	}
+	tempWidth := diffX + 1
+	tempHeight := diffY + 1
 
 	reserveSize := max(diffX, diffY)
 
-	ultraInstinctCoordinates := make([]dryengine.Coordinate2D, 0, reserveSize) //predicted coordinates between start and end points
+	ultraInstinctCoordinates := make([]models.Point2D, 0, reserveSize) //predicted coordinates between start and end points
 
-	tempFrame := make([][]dryengine.Pixel, tempSize.Height)
+	tempFrame := make([][]models.Pixel, tempHeight)
 
 	FrameMutex.Lock()
 	for row := range tempFrame {
-		tempFrame[row] = make([]dryengine.Pixel, tempSize.Width)
+		tempFrame[row] = make([]models.Pixel, tempWidth)
 
 		for column := range tempFrame[row] {
 			frameY := minY + row
@@ -111,14 +109,14 @@ func DrawLine(pixel dryengine.Pixel, start dryengine.Coordinate2D, end dryengine
 		tempY := y0 - minY
 
 		// Check tempFrame bounds
-		if tempY >= 0 && tempY < tempSize.Height && tempX >= 0 && tempX < tempSize.Width {
+		if tempY >= 0 && tempY < tempHeight && tempX >= 0 && tempX < tempWidth {
 			tempFrame[tempY][tempX] = pixel
 		}
 
 		// Update main frame if needed
 		if y0 >= 0 && y0 < len(Frame2D) && x0 >= 0 && x0 < len(Frame2D[0]) {
 			Frame2D[y0][x0] = pixel
-			ultraInstinctCoordinates = append(ultraInstinctCoordinates, dryengine.Coordinate2D{X: x0, Y: y0})
+			ultraInstinctCoordinates = append(ultraInstinctCoordinates, models.Point2D{X: float32(x0), Y: float32(y0)})
 		}
 
 		if x0 == x1 && y0 == y1 {
@@ -138,39 +136,39 @@ func DrawLine(pixel dryengine.Pixel, start dryengine.Coordinate2D, end dryengine
 		}
 	}
 	FrameMutex.Unlock()
-	Engine.AddFrame(&dryengine.RenderFrame{Frame: &tempFrame, FrameSize: tempSize, C: &dryengine.Coordinate2D{X: minX, Y: minY}})
+	Engine.AddFrame(models.RenderFrame{Frame: &tempFrame, C: &models.Point2D{X: float32(minX), Y: float32(minY)}})
 
 	return ultraInstinctCoordinates
 }
 
-func DrawPoint(pixel dryengine.Pixel, c dryengine.Coordinate2D) {
+func DrawPoint(pixel models.Pixel, c models.Point2D) {
 	SetPixel(pixel, c)
 
-	pointFrame := [][]dryengine.Pixel{
+	pointFrame := [][]models.Pixel{
 		{
 			pixel,
 		},
 	}
 
-	Engine.AddFrame(&dryengine.RenderFrame{Frame: &pointFrame, FrameSize: PointSize, C: &c})
+	Engine.AddFrame(models.RenderFrame{Frame: &pointFrame, C: &c})
 }
 
 func SetBoard() {
 	FrameMutex.Lock()
 	defer FrameMutex.Unlock()
 
-	Frame2D = make([][]dryengine.Pixel, Size.Height)
+	Frame2D = make([][]models.Pixel, Height)
 	for row := range Frame2D {
-		Frame2D[row] = make([]dryengine.Pixel, Size.Width)
+		Frame2D[row] = make([]models.Pixel, Width)
 		for column := range Frame2D[row] {
 			Frame2D[row][column] = BackgroundPixel
 		}
 	}
 }
 
-func SetPixel(pixel dryengine.Pixel, c dryengine.Coordinate2D) {
+func SetPixel(pixel models.Pixel, c models.Point2D) {
 	FrameMutex.Lock()
 	defer FrameMutex.Unlock()
 
-	Frame2D[c.Y][c.X] = pixel
+	Frame2D[int(c.Y)][int(c.X)] = pixel
 }

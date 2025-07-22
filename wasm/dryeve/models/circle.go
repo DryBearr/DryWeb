@@ -1,15 +1,16 @@
 // ===============================================================
-// File: drawing.go
-// Description: Provides utility functions for the game of life
+// File: circle.go
+// Description: Defines circle
 // Author: DryBearr
 // ===============================================================
 
-package core
+package models
 
-func Abs(v int) int {
-	if v < 0 {
-		return -v
-	}
+type Circle struct {
+	Center Point2D
 
-	return v
+	R float32
+
+	StartAngle float32
+	EndAngle   float32
 }

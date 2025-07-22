@@ -4,16 +4,17 @@
 // Author: DryBearr
 // ===============================================================
 
-package core
+package gamecore
 
 import (
 	"math/rand"
 	"sync"
 	"time"
-	"wasm/dryengine"
+	"wasm/dryeve/engine"
+	"wasm/dryeve/models"
 )
 
-type Move dryengine.Coordinate2D
+type Move models.Point2D
 
 const (
 	wall      byte = 4
@@ -26,7 +27,7 @@ const (
 )
 
 var (
-	engine dryengine.DryEngine
+	gameEngine engine.Engine
 
 	boardMutex   sync.Mutex
 	board        [][]byte
@@ -44,11 +45,11 @@ var (
 
 	//TODO: i can just use board so future me fix this poop :)
 	snakePartsMutex sync.Mutex
-	delayedTail     *dryengine.Coordinate2D
-	snakeParts      []dryengine.Coordinate2D
+	delayedTail     *models.Point2D
+	snakeParts      []models.Point2D
 
 	appleMutex   sync.Mutex
-	droppedApple *dryengine.Coordinate2D
+	droppedApple *models.Point2D
 
 	pointMutex sync.Mutex
 	points     int
@@ -65,28 +66,29 @@ var (
 	currentDurationMutex sync.Mutex
 	ticker               = time.NewTicker(time.Millisecond * time.Duration(currentDuration))
 
-	size      dryengine.Size
+	height    int
+	width     int
 	sizeMutex sync.Mutex
 
-	backgroundColor = dryengine.Pixel{
+	backgroundColor = models.Pixel{
 		R: 0,
 		G: 0,
 		B: 0,
 		A: 255,
 	}
-	snakeColor = dryengine.Pixel{
+	snakeColor = models.Pixel{
 		R: 255,
 		G: 255,
 		B: 255,
 		A: 255,
 	}
-	snackColor = dryengine.Pixel{
+	snackColor = models.Pixel{
 		R: 0,
 		G: 0,
 		B: 255,
 		A: 255,
 	}
-	wallColor = dryengine.Pixel{
+	wallColor = models.Pixel{
 		R: 255,
 		G: 0,
 		B: 0,
@@ -94,24 +96,26 @@ var (
 	}
 )
 
-func StartGame(newEngine dryengine.DryEngine) {
+func StartGame(newEngine engine.Engine) {
 	initBoard()
 
 	initSnake()
 
-	droppedApple = &dryengine.Coordinate2D{X: rand.Intn(boardSize-2) + 1, Y: rand.Intn(boardSize-2) + 1}
+	droppedApple = &models.Point2D{X: float32(rand.Intn(boardSize-2) + 1), Y: float32(rand.Intn(boardSize-2) + 1)}
 
-	engine = newEngine
+	gameEngine = newEngine
 
-	size = engine.GetSize()
+	//TODO:
+	width = 800
+	height = 600
 
 	endGameChan = make(chan any)
 
-	engine.RegisterKeyDownEventListener(onKeyDown)
-	engine.RegisterResizeEventListener(onResize)
-	engine.RegisterSwipeEventListener(onSwipe)
+	gameEngine.Events.RegisterKeyDownEventListener(onKeyDown)
+	gameEngine.Events.RegisterResizeEventListener(onResize)
+	gameEngine.Events.RegisterSwipeEventListener(onSwipe)
 
-	engine.StartRenderLoop(16 * time.Millisecond)
+	gameEngine.StartRenderLoop()
 
 	startGameLoop()
 
@@ -134,18 +138,19 @@ func setBoard(newBoard [][]byte) {
 	board = newBoard
 }
 
-func setSize(newSize dryengine.Size) {
+func setSize(newWidth, newHeight int) {
 	sizeMutex.Lock()
 	defer sizeMutex.Unlock()
 
-	size = newSize
+	width = newWidth
+	height = newHeight
 }
 
-func getSize() dryengine.Size {
+func getSize() (int, int) {
 	sizeMutex.Lock()
 	defer sizeMutex.Unlock()
 
-	return size
+	return width, height
 }
 
 func setSnakeDirection(newDirection Move) {
@@ -162,28 +167,28 @@ func getSnakeDirection() Move {
 	return snakeDirection
 }
 
-func setSnakeParts(newSnakeParts []dryengine.Coordinate2D) {
+func setSnakeParts(newSnakeParts []models.Point2D) {
 	snakePartsMutex.Lock()
 	defer snakePartsMutex.Unlock()
 
 	snakeParts = newSnakeParts
 }
 
-func getSnakeParts() []dryengine.Coordinate2D {
+func getSnakeParts() []models.Point2D {
 	snakePartsMutex.Lock()
 	defer snakePartsMutex.Unlock()
 
 	return snakeParts
 }
 
-func getApple() *dryengine.Coordinate2D {
+func getApple() *models.Point2D {
 	appleMutex.Lock()
 	defer appleMutex.Unlock()
 
 	return droppedApple
 }
 
-func setApple(newApple *dryengine.Coordinate2D) {
+func setApple(newApple *models.Point2D) {
 	appleMutex.Lock()
 	defer appleMutex.Unlock()
 
@@ -212,7 +217,7 @@ func initBoard() {
 }
 
 func initSnake() {
-	setSnakeParts([]dryengine.Coordinate2D{
+	setSnakeParts([]models.Point2D{
 		{
 			X: 1,
 			Y: 1,
@@ -254,7 +259,7 @@ func checkState() {
 		setSnakeParts(currentSnakeParts)
 	}
 
-	switch board[snakeParts[0].Y][snakeParts[0].X] {
+	switch board[int(snakeParts[0].Y)][int(snakeParts[0].X)] {
 	case wall, snakeTail:
 		go func() {
 			endGameChan <- struct{}{}
@@ -266,7 +271,7 @@ func checkState() {
 		newTail := currentSnakeParts[len(snakeParts)-1]
 		delayedTail = &newTail
 
-		setApple(&dryengine.Coordinate2D{X: rand.Intn(boardSize-2) + 1, Y: rand.Intn(boardSize-2) + 1})
+		setApple(&models.Point2D{X: float32(rand.Intn(boardSize-2) + 1), Y: float32(rand.Intn(boardSize-2) + 1)})
 
 		increasePoints()
 	}
@@ -282,13 +287,13 @@ func checkState() {
 
 	currentDroppedApple := getApple()
 	if getApple() != nil {
-		currentBoard[currentDroppedApple.Y][currentDroppedApple.X] = apple
+		currentBoard[int(currentDroppedApple.Y)][int(currentDroppedApple.X)] = apple
 	}
 
-	currentBoard[currentSnakeParts[0].Y][currentSnakeParts[0].X] = snakeHead
+	currentBoard[int(currentSnakeParts[0].Y)][int(currentSnakeParts[0].X)] = snakeHead
 
 	for _, snakePart := range currentSnakeParts[1:] {
-		currentBoard[snakePart.Y][snakePart.X] = snakeTail
+		currentBoard[int(snakePart.Y)][int(snakePart.X)] = snakeTail
 	}
 
 	setBoard(currentBoard)
@@ -338,9 +343,8 @@ func startGameLoop() {
 
 				checkState()
 
-				engine.AddFrame(&dryengine.RenderFrame{
-					Frame:     boardToFrame(),
-					FrameSize: size,
+				gameEngine.AddFrame(models.RenderFrame{
+					Frame: boardToFrame(),
 				})
 			case <-endGameChan:
 				resetDuration()
@@ -360,23 +364,23 @@ func startGameLoop() {
 }
 
 // Event handlers
-func onSwipe(direction dryengine.SwipeDirection) error {
+func onSwipe(direction models.SwipeDirection) error {
 	currentSnakeDirection := getSnakeDirection()
 
 	switch direction {
-	case dryengine.SwipeUp:
+	case models.SwipeUp:
 		if currentSnakeDirection != moveDown {
 			setSnakeDirection(moveUp)
 		}
-	case dryengine.SwipeLeft:
+	case models.SwipeLeft:
 		if currentSnakeDirection != moveRight {
 			setSnakeDirection(moveLeft)
 		}
-	case dryengine.SwipeRight:
+	case models.SwipeRight:
 		if currentSnakeDirection != moveLeft {
 			setSnakeDirection(moveRight)
 		}
-	case dryengine.SwipeDown:
+	case models.SwipeDown:
 		if currentSnakeDirection != moveUp {
 			setSnakeDirection(moveDown)
 		}
@@ -385,23 +389,23 @@ func onSwipe(direction dryengine.SwipeDirection) error {
 	return nil
 }
 
-func onKeyDown(key dryengine.Key) error {
+func onKeyDown(key models.Key) error {
 	currentSnakeDirection := getSnakeDirection()
 
 	switch key {
-	case dryengine.WKey:
+	case models.KeyW:
 		if currentSnakeDirection != moveDown {
 			setSnakeDirection(moveUp)
 		}
-	case dryengine.AKey:
+	case models.KeyA:
 		if currentSnakeDirection != moveRight {
 			setSnakeDirection(moveLeft)
 		}
-	case dryengine.DKey:
+	case models.KeyD:
 		if currentSnakeDirection != moveLeft {
 			setSnakeDirection(moveRight)
 		}
-	case dryengine.SKey:
+	case models.KeyS:
 		if currentSnakeDirection != moveUp {
 			setSnakeDirection(moveDown)
 		}
@@ -410,28 +414,28 @@ func onKeyDown(key dryengine.Key) error {
 	return nil
 }
 
-func onResize(newSize dryengine.Size) error {
-	setSize(newSize)
+func onResize(width, height int) error {
+	setSize(width, height)
 
 	return nil
 }
 
 //Game rendering funcs
 
-func boardToFrame() *[][]dryengine.Pixel {
+func boardToFrame() *[][]models.Pixel {
 	currentBoard := getBoard()
 
-	currentSize := getSize()
+	currentWidth, currentHeight := getSize()
 
-	newFrame2D := make([][]dryengine.Pixel, currentSize.Height)
+	newFrame2D := make([][]models.Pixel, currentHeight)
 	for idx := range newFrame2D {
-		newFrame2D[idx] = make([]dryengine.Pixel, currentSize.Width)
+		newFrame2D[idx] = make([]models.Pixel, currentWidth)
 	}
 
 	for frameYIndex := range newFrame2D {
 		for frameXIndex := range newFrame2D[frameYIndex] {
-			boardYIndex := frameYIndex * boardSize / currentSize.Height
-			boardXIndex := frameXIndex * boardSize / currentSize.Width
+			boardYIndex := frameYIndex * boardSize / currentHeight
+			boardXIndex := frameXIndex * boardSize / currentWidth
 
 			switch currentBoard[boardYIndex][boardXIndex] {
 			case snakeTail, snakeHead:

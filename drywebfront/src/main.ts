@@ -35,8 +35,6 @@ if (!root) throw new Error("no element with id `app` in the html document");
   ===============================================================
 */
 
-// FIX: height of background is incorrect when using inspect tools
-
 const docWidth = document.documentElement.scrollWidth;
 const docHeight = document.documentElement.scrollHeight;
 
@@ -48,10 +46,19 @@ createGridBackground(docWidth, docHeight);
 root.append(background);
 
 window.addEventListener("resize", () => {
-  const docWidth = document.documentElement.scrollWidth;
-  const docHeight = document.documentElement.scrollHeight;
+  const newWidth = Math.max(
+    document.documentElement.scrollWidth,
+    document.documentElement.clientWidth,
+    window.innerWidth,
+  );
 
-  handleBackgroundReSize(docWidth, docHeight);
+  const newHeight = Math.max(
+    document.documentElement.scrollHeight,
+    document.documentElement.clientHeight,
+    window.innerHeight,
+  );
+
+  handleBackgroundReSize(newWidth, newHeight);
 });
 
 /*
@@ -129,16 +136,7 @@ workerCanvas.postMessage(
 
 workerApi.addEventListener("message", function (event) {
   const data = event.data;
-  if (data.type === "frame") {
-    workerCanvas.postMessage({
-      ...data,
-    });
-  }
-});
-
-workerApi.addEventListener("message", function (event) {
-  const data = event.data;
-  if (data.type === "framePart") {
+  if (data.type === "renderFrame") {
     workerCanvas.postMessage({
       ...data,
     });
@@ -169,16 +167,7 @@ reloadWasmButton.addEventListener("click", () => {
 
   workerApi.addEventListener("message", function (event) {
     const data = event.data;
-    if (data.type === "frame") {
-      workerCanvas.postMessage({
-        ...data,
-      });
-    }
-  });
-
-  workerApi.addEventListener("message", function (event) {
-    const data = event.data;
-    if (data.type === "framePart") {
+    if (data.type === "renderFrame") {
       workerCanvas.postMessage({
         ...data,
       });
@@ -190,19 +179,27 @@ reloadWasmButton.setAttribute("class", "reload-button");
 controlsDiv.append(reloadWasmButton);
 
 //On Canvas Drag event logic
-const getCanvasCoordinates = (event: MouseEvent | TouchEvent) => {
+const getCanvasCoordinates = (event: MouseEvent | TouchEvent): Point => {
   const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+
+  let x: number, y: number;
+
   if ("touches" in event && event.touches.length > 0) {
-    return {
-      x: Math.floor(event.touches[0].clientX - rect.left),
-      y: Math.floor(event.touches[0].clientY - rect.top),
-    };
+    const touch = event.touches[0];
+    x = (touch.clientX - rect.left) * scaleX;
+    y = (touch.clientY - rect.top) * scaleY;
   } else {
-    return {
-      x: Math.floor((event as MouseEvent).clientX - rect.left),
-      y: Math.floor((event as MouseEvent).clientY - rect.top),
-    };
+    const mouse = event as MouseEvent;
+    x = (mouse.clientX - rect.left) * scaleX;
+    y = (mouse.clientY - rect.top) * scaleY;
   }
+
+  return {
+    x: Math.floor(x),
+    y: Math.floor(y),
+  };
 };
 
 interface Point {
@@ -277,8 +274,6 @@ canvas.addEventListener("mouseup", (event) => handleDragEnd(event));
 canvas.addEventListener("touchstart", (event) => handleDragStart(event));
 canvas.addEventListener("touchmove", (event) => handleDragMove(event));
 canvas.addEventListener("touchend", (event) => handleDragEnd(event));
-
-console.log("[Core] Init workers Done.");
 
 //Event key
 //TODO: window or document hmmm

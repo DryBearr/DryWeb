@@ -9,10 +9,16 @@
 package main
 
 import (
-	"wasm/snake/core"
-	"wasm/webrender"
+	"time"
+	"wasm/dryeve/engine"
+	"wasm/dryeve/web"
+	"wasm/snake/gamecore"
 )
 
 func main() {
-	core.StartGame(webrender.Api)
+	gameEvents := web.NewWebEvents()
+	gameRenderer := web.NewWebRenderer()
+	gameEngine := engine.NewEngine(gameRenderer, gameEvents, 16*time.Millisecond, 1000)
+
+	gamecore.StartGame(*gameEngine)
 }

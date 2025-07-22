@@ -9,10 +9,16 @@
 package main
 
 import (
-	"wasm/game_of_life/core"
-	"wasm/webrender"
+	"time"
+	"wasm/dryeve/engine"
+	"wasm/dryeve/web"
+	"wasm/game_of_life/gamecore"
 )
 
 func main() {
-	core.StartGame(webrender.Api)
+	events := web.NewWebEvents()
+	renderer := web.NewWebRenderer()
+	gameEngine := engine.NewEngine(renderer, events, 16*time.Millisecond, 1000)
+
+	gamecore.StartGame(*gameEngine)
 }
